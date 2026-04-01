@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Formation Secourisme — Gendarmerie</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -607,6 +608,26 @@ tbody td {
 .search-result-item strong { color: var(--bleu); }
 .search-result-item small { color: #888; }
 .search-wrapper { position: relative; }
+
+/* ── VERSION ─────────────────────────────────────── */
+#version-badge {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.35);
+  background: transparent;
+  z-index: 9999;
+  user-select: none;
+  pointer-events: none;
+}
+#login-screen ~ #version-badge,
+#login-screen:not([style*="none"]) + * #version-badge {
+  color: rgba(255,255,255,0.3);
+}
 </style>
 </head>
 <body>
@@ -1134,7 +1155,6 @@ async function doLogin() {
   if (!email) { showLoginError('Veuillez saisir votre adresse email.'); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showLoginError('Adresse email invalide.'); return; }
   if (!pwd) { showLoginError('Veuillez saisir votre mot de passe.'); return; }
-  if (pwd.length < 6) { showLoginError('Le mot de passe doit contenir au moins 6 caractères.'); return; }
 
   btn.textContent = 'Connexion en cours...';
   btn.disabled = true;
@@ -1954,5 +1974,7 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
   o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
 });
 </script>
+
+<div id="version-badge"><span id="github-version">V1</span></div>
 </body>
 </html>
