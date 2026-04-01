@@ -839,15 +839,7 @@ tbody td {
       <div class="page-header">
         <div class="page-title">Configuration</div>
       </div>
-
-      <div class="config-section">
-        <h3>🔗 Connexion Supabase</h3>
-        <div class="form-row">
-          <div class="form-group">
-            <label>URL Supabase</label>
-            <input type="text" id="cfg-url" class="search-input" style="width:100%" placeholder="https://xxx.supabase.co">
-          </div>
-        </div>
+      </div>
         <div class="form-row">
           <div class="form-group">
             <label>Clé Anon</label>
@@ -1110,7 +1102,7 @@ tbody td {
 <!-- ══════════════════════════════════════════════ JS ══ -->
 <script>
 // ─── SUPABASE INIT ────────────────────────────────────────
-let supabase = null;
+let db = null;
 let currentUser = null;
 let currentFormateur = null;
 let currentFormationId = null;
@@ -1121,14 +1113,14 @@ let allPersonnel = [];
 let allFormations = [];
 let allFormateurs = [];
 
+const SB_URL = 'https://mmnetgsrfbktkldosblc.supabase.co';
+const SB_KEY = 'sb_publishable_HUiJ_jAzPAVPUVX7jxHEvg_Bq7sEbWE';
+
 function initSupabase() {
-  const url = localStorage.getItem('sb_url') || '';
-  const key = localStorage.getItem('sb_key') || '';
-  if (url && key) {
-    supabase = window.supabase.createClient(url, key);
-    return true;
-  }
-  return false;
+  const url = SB_URL;
+  const key = SB_KEY;
+  db = window.supabase.createClient(url, key);
+  return true;
 }
 
 // ─── LOGIN ────────────────────────────────────────────────
@@ -1136,31 +1128,67 @@ async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const pwd = document.getElementById('login-password').value;
   const err = document.getElementById('login-error');
+  const btn = document.querySelector('.btn-login');
   err.style.display = 'none';
 
-  if (!initSupabase()) {
-    err.textContent = 'Configuration Supabase manquante. Contactez l\'administrateur.';
-    err.style.display = 'block';
-    // Allow config mode if no supabase
-    showApp();
-    showPage('config');
-    return;
-  }
+  if (!email) { showLoginError('Veuillez saisir votre adresse email.'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showLoginError('Adresse email invalide.'); return; }
+  if (!pwd) { showLoginError('Veuillez saisir votre mot de passe.'); return; }
+  if (pwd.length < 6) { showLoginError('Le mot de passe doit contenir au moins 6 caractères.'); return; }
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pwd });
-  if (error) {
-    err.textContent = 'Email ou mot de passe incorrect.';
-    err.style.display = 'block';
-    return;
+  btn.textContent = 'Connexion en cours...';
+  btn.disabled = true;
+
+  try {
+    initSupabase();
+    const { data, error } = await db.auth.signInWithPassword({ email, password: pwd });
+
+    if (error) {
+      const code = error.message || '';
+      if (code.includes('Invalid login credentials') || code.includes('invalid_credentials')) {
+        showLoginError('Email ou mot de passe incorrect.');
+      } else if (code.includes('Email not confirmed')) {
+        showLoginError("Votre compte n'est pas encore confirmé. Vérifiez votre boîte mail.");
+      } else if (code.includes('User not found')) {
+        showLoginError('Aucun compte trouvé avec cet email.');
+      } else if (code.includes('Too many requests') || code.includes('rate limit')) {
+        showLoginError('Trop de tentatives. Attendez quelques minutes avant de réessayer.');
+      } else if (code.includes('Network') || code.includes('fetch')) {
+        showLoginError('Erreur réseau. Vérifiez votre connexion internet.');
+      } else {
+        showLoginError('Erreur : ' + code);
+      }
+      return;
+    }
+
+    currentUser = data.user;
+    await loadCurrentFormateur();
+
+    if (!currentFormateur) {
+      showLoginError("Compte non enregistré comme formateur. Contactez l'administrateur.");
+      await db.auth.signOut();
+      return;
+    }
+
+    showApp();
+
+  } catch(e) {
+    showLoginError('Erreur inattendue : ' + e.message);
+  } finally {
+    btn.textContent = 'Connexion';
+    btn.disabled = false;
   }
-  currentUser = data.user;
-  await loadCurrentFormateur();
-  showApp();
+}
+
+function showLoginError(msg) {
+  const err = document.getElementById('login-error');
+  err.textContent = msg;
+  err.style.display = 'block';
 }
 
 async function loadCurrentFormateur() {
   if (!currentUser) return;
-  const { data } = await supabase
+  const { data } = await db
     .from('formateurs')
     .select('*')
     .eq('user_id', currentUser.id)
@@ -1185,7 +1213,7 @@ function showApp() {
 }
 
 async function doLogout() {
-  if (supabase) await supabase.auth.signOut();
+  if (db) await db.auth.signOut();
   location.reload();
 }
 
@@ -1208,23 +1236,23 @@ function showPage(name) {
 
 // ─── DASHBOARD ────────────────────────────────────────────
 async function loadDashboard() {
-  if (!supabase) return;
+  if (!db) return;
 
   // Stats
   const [{ count: nbPers }, { count: nbForm }, { data: sessions }] = await Promise.all([
-    supabase.from('personnel').select('*', {count:'exact',head:true}),
-    supabase.from('personnel').select('*', {count:'exact',head:true}),
-    supabase.from('formations').select('id, statut, type_formation, format').neq('statut','Annulée')
+    db.from('personnel').select('*', {count:'exact',head:true}),
+    db.from('personnel').select('*', {count:'exact',head:true}),
+    db.from('formations').select('id, statut, type_formation, format').neq('statut','Annulée')
   ]);
 
-  const { count: nbPersonnel } = await supabase.from('personnel').select('*', {count:'exact',head:true});
-  const { count: nbFormations } = await supabase.from('formations').select('*', {count:'exact',head:true});
-  const { count: nbEnCours } = await supabase.from('formations')
+  const { count: nbPersonnel } = await db.from('personnel').select('*', {count:'exact',head:true});
+  const { count: nbFormations } = await db.from('formations').select('*', {count:'exact',head:true});
+  const { count: nbEnCours } = await db.from('formations')
     .select('*', {count:'exact',head:true})
     .in('statut', ['Ouverte','A ouvrir','Admin - PreForm - OK','A la signature']);
 
   const thisYear = new Date().getFullYear();
-  const { count: nbAnnee } = await supabase.from('formations')
+  const { count: nbAnnee } = await db.from('formations')
     .select('*', {count:'exact',head:true})
     .gte('date_formation', `${thisYear}-01-01`)
     .neq('statut','Annulée');
@@ -1278,10 +1306,10 @@ async function loadDashboard() {
 
 // ─── PERSONNEL ────────────────────────────────────────────
 async function loadPersonnel() {
-  if (!supabase) return;
+  if (!db) return;
   document.getElementById('tbody-personnel').innerHTML = '<tr><td colspan="12"><div class="loading"><div class="spinner"></div> Chargement...</div></td></tr>';
 
-  const { data, error } = await supabase.from('personnel').select('*').order('nom');
+  const { data, error } = await db.from('personnel').select('*').order('nom');
   if (error) { showToast('Erreur chargement personnel', 'error'); return; }
 
   allPersonnel = data || [];
@@ -1392,9 +1420,9 @@ async function savePersonnel() {
 
   let error;
   if (editingPersonnelId) {
-    ({ error } = await supabase.from('personnel').update(payload).eq('id', editingPersonnelId));
+    ({ error } = await db.from('personnel').update(payload).eq('id', editingPersonnelId));
   } else {
-    ({ error } = await supabase.from('personnel').insert(payload));
+    ({ error } = await db.from('personnel').insert(payload));
   }
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast(editingPersonnelId ? 'Agent mis à jour' : 'Agent ajouté', 'success');
@@ -1404,7 +1432,7 @@ async function savePersonnel() {
 
 async function deletePersonnel(id) {
   if (!confirm('Supprimer cet agent ?')) return;
-  const { error } = await supabase.from('personnel').delete().eq('id', id);
+  const { error } = await db.from('personnel').delete().eq('id', id);
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast('Agent supprimé', 'success');
   loadPersonnel();
@@ -1412,7 +1440,7 @@ async function deletePersonnel(id) {
 
 // ─── FORMATIONS ───────────────────────────────────────────
 async function loadFormations() {
-  if (!supabase) return;
+  if (!db) return;
   document.getElementById('tbody-formations').innerHTML = '<tr><td colspan="9"><div class="loading"><div class="spinner"></div> Chargement...</div></td></tr>';
 
   const { data } = await supabase
@@ -1513,9 +1541,9 @@ async function saveFormation() {
 
   let error;
   if (editingFormationId) {
-    ({ error } = await supabase.from('formations').update(payload).eq('id', editingFormationId));
+    ({ error } = await db.from('formations').update(payload).eq('id', editingFormationId));
   } else {
-    ({ error } = await supabase.from('formations').insert(payload));
+    ({ error } = await db.from('formations').insert(payload));
   }
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast(editingFormationId ? 'Formation mise à jour' : 'Formation créée', 'success');
@@ -1526,7 +1554,7 @@ async function saveFormation() {
 
 async function deleteFormation(id) {
   if (!confirm('Supprimer cette formation et tous ses participants ?')) return;
-  const { error } = await supabase.from('formations').delete().eq('id', id);
+  const { error } = await db.from('formations').delete().eq('id', id);
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast('Formation supprimée', 'success');
   loadFormations();
@@ -1645,7 +1673,7 @@ function selectParticipant(id, nigend, nom, prenom, unite) {
 
 async function addParticipant() {
   if (!selectedParticipantId) { showToast('Sélectionnez un agent', 'error'); return; }
-  const { error } = await supabase.from('formation_participants').insert({
+  const { error } = await db.from('formation_participants').insert({
     formation_id: currentFormationId,
     personnel_id: selectedParticipantId,
     present: document.getElementById('part-present').value === 'true',
@@ -1665,7 +1693,7 @@ async function addParticipant() {
 
 async function removeParticipant(fpId) {
   if (!confirm('Retirer ce participant ?')) return;
-  const { error } = await supabase.from('formation_participants').delete().eq('id', fpId);
+  const { error } = await db.from('formation_participants').delete().eq('id', fpId);
   if (error) { showToast('Erreur', 'error'); return; }
   showToast('Participant retiré', 'success');
   await loadParticipants(currentFormationId);
@@ -1673,9 +1701,9 @@ async function removeParticipant(fpId) {
 
 async function updatePersonnelStats(personnelId, formationId) {
   // Get formation info
-  const { data: f } = await supabase.from('formations').select('type_formation, format, date_formation').eq('id', formationId).single();
+  const { data: f } = await db.from('formations').select('type_formation, format, date_formation').eq('id', formationId).single();
   if (!f) return;
-  const { data: p } = await supabase.from('personnel').select('*').eq('id', personnelId).single();
+  const { data: p } = await db.from('personnel').select('*').eq('id', personnelId).single();
   if (!p) return;
 
   const update = {};
@@ -1699,17 +1727,17 @@ async function updatePersonnelStats(personnelId, formationId) {
     }
   }
   if (Object.keys(update).length > 0) {
-    await supabase.from('personnel').update(update).eq('id', personnelId);
+    await db.from('personnel').update(update).eq('id', personnelId);
   }
 }
 
 // ─── STATS ────────────────────────────────────────────────
 async function loadStats() {
-  if (!supabase) return;
+  if (!db) return;
   const container = document.getElementById('stats-content');
   container.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement...</div>';
 
-  const { data } = await supabase.from('stats_annuelles').select('*');
+  const { data } = await db.from('stats_annuelles').select('*');
   if (!data || data.length === 0) {
     container.innerHTML = '<div class="empty-state"><div class="icon">📈</div><p>Aucune donnée</p></div>';
     return;
@@ -1756,8 +1784,6 @@ async function loadStats() {
 
 // ─── CONFIG ───────────────────────────────────────────────
 function loadConfig() {
-  document.getElementById('cfg-url').value = localStorage.getItem('sb_url') || '';
-  document.getElementById('cfg-key').value = localStorage.getItem('sb_key') || '';
   if (currentFormateur?.is_admin) {
     document.getElementById('cfg-admin-section').style.display = 'block';
     loadFormateurs();
@@ -1766,16 +1792,9 @@ function loadConfig() {
   }
 }
 
-function saveSupabaseConfig() {
-  const url = document.getElementById('cfg-url').value.trim();
-  const key = document.getElementById('cfg-key').value.trim();
-  localStorage.setItem('sb_url', url);
-  localStorage.setItem('sb_key', key);
-  showToast('Configuration sauvegardée — rechargez la page', 'success');
-}
 
 async function loadFormateurs() {
-  const { data } = await supabase.from('formateurs').select('*').order('nom');
+  const { data } = await db.from('formateurs').select('*').order('nom');
   allFormateurs = data || [];
   const list = document.getElementById('formateurs-list');
   list.innerHTML = allFormateurs.map(f => `
@@ -1792,7 +1811,7 @@ async function loadFormateurs() {
 }
 
 async function toggleFormateur(id, actif) {
-  const { error } = await supabase.from('formateurs').update({actif}).eq('id', id);
+  const { error } = await db.from('formateurs').update({actif}).eq('id', id);
   if (error) { showToast('Erreur', 'error'); return; }
   showToast(`Formateur ${actif ? 'activé' : 'désactivé'}`, 'success');
   loadFormateurs();
@@ -1807,13 +1826,13 @@ async function creerFormateur() {
 
   // Create auth user via admin API (requires service role key - note to user)
   // Alternatively, use signUp and confirm manually
-  const { data, error } = await supabase.auth.signUp({ email, password: pwd });
+  const { data, error } = await db.auth.signUp({ email, password: pwd });
   if (error) { showToast('Erreur Auth : ' + error.message, 'error'); return; }
 
   const userId = data.user?.id;
   if (!userId) { showToast('Utilisateur créé — confirmation email requise', 'success'); return; }
 
-  const { error: e2 } = await supabase.from('formateurs').insert({ user_id: userId, nom, prenom, email, is_admin: false });
+  const { error: e2 } = await db.from('formateurs').insert({ user_id: userId, nom, prenom, email, is_admin: false });
   if (e2) { showToast('Erreur base : ' + e2.message, 'error'); return; }
   showToast('Formateur créé !', 'success');
   ['new-formateur-nom','new-formateur-prenom','new-formateur-email','new-formateur-pwd'].forEach(id => document.getElementById(id).value = '');
@@ -1822,7 +1841,7 @@ async function creerFormateur() {
 
 // ─── EXPORTS ──────────────────────────────────────────────
 async function exportPersonnelCSV() {
-  const { data } = await supabase.from('personnel').select('*').order('nom');
+  const { data } = await db.from('personnel').select('*').order('nom');
   if (!data) return;
   const headers = ['NIGEND','Nom','Prénom','Sexe','Date naissance','Ville naissance','Unité',
     'PSC date','PSC validité','PSC nb','SN1 date','SN1 validité','SN1 nb','SN1 possible FC'];
@@ -1835,7 +1854,7 @@ async function exportPersonnelCSV() {
 }
 
 async function exportFormationsCSV() {
-  const { data } = await supabase.from('formations').select('*, formateurs(nom,prenom)').order('date_formation', {ascending:false});
+  const { data } = await db.from('formations').select('*, formateurs(nom,prenom)').order('date_formation', {ascending:false});
   if (!data) return;
   const headers = ['Date','Type','Format','Moment','Statut','N° CRI','Formateur','Lieu','Nom fichier'];
   const rows = data.map(f => [
@@ -1847,7 +1866,7 @@ async function exportFormationsCSV() {
 }
 
 async function exportParticipantsCSV() {
-  const { data } = await supabase.from('formation_participants')
+  const { data } = await db.from('formation_participants')
     .select('*, formations(date_formation,type_formation,format), personnel(nigend,nom,prenom,unite)')
     .order('created_at');
   if (!data) return;
@@ -1861,7 +1880,7 @@ async function exportParticipantsCSV() {
 }
 
 async function exportStatsCSV() {
-  const { data } = await supabase.from('stats_annuelles').select('*');
+  const { data } = await db.from('stats_annuelles').select('*');
   if (!data) return;
   const headers = ['Année','Type','Format','Sessions','Participants','Présents','Validés'];
   const rows = data.map(r => [r.annee, r.type_formation, r.format, r.nb_sessions, r.nb_participants, r.nb_presents, r.nb_valides]);
@@ -1918,8 +1937,8 @@ function showToast(msg, type='') {
 // ─── INIT ─────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   initSupabase();
-  if (supabase) {
-    const { data: { session } } = await supabase.auth.getSession();
+  if (db) {
+    const { data: { session } } = await db.auth.getSession();
     if (session) {
       currentUser = session.user;
       await loadCurrentFormateur();
@@ -1927,8 +1946,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }
   // Prefill config fields
-  document.getElementById('cfg-url').value = localStorage.getItem('sb_url') || '';
-  document.getElementById('cfg-key').value = localStorage.getItem('sb_key') || '';
+
 });
 
 // Close modal on overlay click
