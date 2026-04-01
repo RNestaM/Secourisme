@@ -1219,6 +1219,13 @@ function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  // DEV : formateur fictif si pas d'auth
+  if (!currentFormateur) {
+    currentFormateur = { nom: 'DEV', prenom: 'Mode', is_admin: true, actif: true };
+    document.getElementById('user-name').textContent = 'Mode DEV';
+    document.getElementById('user-role').textContent = '⚠️ Auth suspendue';
+    document.getElementById('user-avatar').textContent = 'DEV';
+  }
   loadDashboard();
 }
 
@@ -1962,17 +1969,10 @@ function showToast(msg, type='') {
 
 // ─── INIT ─────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
+  // ⚠️ LOGIN SUSPENDU POUR DEV — retirer ce bloc pour réactiver l'auth
   initSupabase();
-  if (db) {
-    const { data: { session } } = await db.auth.getSession();
-    if (session) {
-      currentUser = session.user;
-      await loadCurrentFormateur();
-      showApp();
-    }
-  }
-  // Prefill config fields
-
+  showApp();
+  // Fin bypass dev
 });
 
 // Close modal on overlay click
@@ -1981,6 +1981,6 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 });
 </script>
 
-<div id="version-badge"><span id="github-version">V3</span></div>
+<div id="version-badge"><span id="github-version">V4</span></div>
 </body>
 </html>
