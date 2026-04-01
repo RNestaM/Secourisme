@@ -5,7 +5,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Formation Secourisme</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@db/db-js@2"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap');
 
@@ -1289,7 +1289,7 @@ async function loadDashboard() {
   `;
 
   // Recent formations
-  const { data: recent } = await supabase
+  const { data: recent } = await db
     .from('formations')
     .select('*, formateurs(nom, prenom)')
     .order('date_formation', {ascending: false})
@@ -1453,14 +1453,30 @@ async function loadFormations() {
   if (!db) return;
   document.getElementById('tbody-formations').innerHTML = '<tr><td colspan="9"><div class="loading"><div class="spinner"></div> Chargement...</div></td></tr>';
 
-  const { data } = await supabase
-    .from('formations')
-    .select('*, formateurs(nom, prenom), formation_participants(count)')
-    .order('date_formation', {ascending: false});
+  try {
+    const { data, error } = await db
+      .from('formations')
+      .select('*, formateurs(nom, prenom)')
+      .order('date_formation', {ascending: false});
 
-  allFormations = data || [];
-  document.getElementById('formations-count').textContent = `${allFormations.length} formation(s)`;
-  renderFormations(allFormations);
+    if (error) throw error;
+
+    // Get participant counts separately
+    const { data: counts } = await db
+      .from('formation_participants')
+      .select('formation_id');
+
+    const countMap = {};
+    (counts || []).forEach(r => {
+      countMap[r.formation_id] = (countMap[r.formation_id] || 0) + 1;
+    });
+
+    allFormations = (data || []).map(f => ({ ...f, _nbParticipants: countMap[f.id] || 0 }));
+    document.getElementById('formations-count').textContent = `${allFormations.length} formation(s)`;
+    renderFormations(allFormations);
+  } catch(e) {
+    document.getElementById('tbody-formations').innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">⚠️</div><p>Erreur : ${e.message}</p></div></td></tr>`;
+  }
 }
 
 function filterFormations() {
@@ -1485,7 +1501,7 @@ function renderFormations(list) {
     return;
   }
   tbody.innerHTML = list.map(f => {
-    const nbPart = f.formation_participants?.[0]?.count ?? '—';
+    const nbPart = f._nbParticipants ?? 0;
     return `
     <tr onclick="openFormationDetail('${f.id}')">
       <td>${fmtDate(f.date_formation)}</td>
@@ -1576,7 +1592,7 @@ async function openFormationDetail(id) {
   currentFormationId = id;
   showPage('formation-detail');
 
-  const { data: f } = await supabase
+  const { data: f } = await db
     .from('formations')
     .select('*, formateurs(nom, prenom)')
     .eq('id', id)
@@ -1605,7 +1621,7 @@ async function openFormationDetail(id) {
 }
 
 async function loadParticipants(formationId) {
-  const { data } = await supabase
+  const { data } = await db
     .from('formation_participants')
     .select('*, personnel(nigend, nom, prenom, unite)')
     .eq('formation_id', formationId)
@@ -1651,7 +1667,7 @@ async function searchParticipantToAdd() {
   if (q.length < 2) { resultsDiv.style.display = 'none'; return; }
 
   searchTimeout = setTimeout(async () => {
-    const { data } = await supabase
+    const { data } = await db
       .from('personnel')
       .select('id, nigend, nom, prenom, unite')
       .or(`nigend.ilike.%${q}%,nom.ilike.%${q}%,prenom.ilike.%${q}%`)
@@ -1965,6 +1981,6 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 });
 </script>
 
-<div id="version-badge"><span id="github-version">V2</span></div>
+<div id="version-badge"><span id="github-version">V3</span></div>
 </body>
 </html>
