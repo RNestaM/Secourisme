@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V35</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V38</span></div>
     </div>
   </div>
 
@@ -3265,182 +3265,71 @@ async function genererPV() {
     }
     let xml = await zip.file('content.xml').async('string');
 
-    // ── DEBUG TABLEAUX (à retirer après diagnostic) ──
-    // Tous les noms de tableaux utilisés dans le contenu
-    const tableNames = [...new Set([...xml.matchAll(/table:name="([^"]+)"/g)].map(m=>m[1]))];
-    console.log('[DEBUG] Tableaux trouvés :', JSON.stringify(tableNames));
-    // Styles de lignes (table-row style-name)
-    const rowStyles = [...new Set([...xml.matchAll(/table:table-row table:style-name="([^"]+)"/g)].map(m=>m[1]))];
-    console.log('[DEBUG] Styles de lignes :', JSON.stringify(rowStyles));
-    // Cherche XXXXX (pied de page)
-    const dbgXXXXX = xml.indexOf('XXXXX');
-    if (dbgXXXXX >= 0) console.log('[DEBUG] Autour de XXXXX :', JSON.stringify(xml.slice(Math.max(0,dbgXXXXX-100), dbgXXXXX+100)));
-    else console.log('[DEBUG] XXXXX non trouvé dans le XML');
-
-    // ── Données à injecter ──
+    // ── Données ──
     const date = formation.date_formation;
-    const dateAff = fmtDatePV(date);
-    const dateShort = fmtDateShort(date); // JJ/MM pour les spans séparés
     const [dy, dm, dd] = date.split('-');
-    const lieu = formation.lieu || 'XXXXX';
-    const cri = formation.numero_cri || 'XXXX';
+    const lieu = formation.lieu || '';
+    const cri = formation.numero_cri || '';
     const nbPresents = participants.length;
     const nbRecus = participants.filter(p => p.resultat === 'Validé').length;
     const resp = formation.responsable;
     const qualif = resp?.qualification || (type === 'SN1' ? 'F SauveTaGe' : 'FPSC');
-
-    // ── Préparation lieu ──
     const lieuVille = lieu.split('(')[0].trim().toUpperCase();
     const lieuDept = lieu.match(/\((\d+)\)/)?.[1] || '56';
-    const newCri = escXml(String(cri));
-    const newDate = `${dd}/${dm}/20${dy.slice(2)}`;
+    const dateFormation = `${dd}/${dm}/${dy}`;
 
-    // ── 1. N° PV ──
-    // SN1 : XXXX et XX/XX/ dans des spans séparés (T1/T2/T3)
-    xml = xml.replace(
-      '<text:span text:style-name="T1">XXXX</text:span> du <text:span text:style-name="T1">XX/XX/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">26</text:span>',
-      `<text:span text:style-name="T1">${newCri}</text:span> du <text:span text:style-name="T1">${dd}/${dm}/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">${dy.slice(2)}</text:span>`
-    );
-    // PSC : N° XXXX du XX/XX/ en texte brut dans P5, suivi de spans pour 20/26
-    xml = xml.replace(
-      `N° XXXX du XX/XX/<text:span text:style-name="T1">20</text:span><text:span text:style-name="T2">${dy.slice(2)}</text:span>`,
-      `N° ${newCri} du ${dd}/${dm}/<text:span text:style-name="T1">20</text:span><text:span text:style-name="T2">${dy.slice(2)}</text:span>`
-    );
-    // PSC fallback : au cas où l'année dans T2 est encore "26" (template non modifié)
-    xml = xml.replace(
-      'N° XXXX du XX/XX/<text:span text:style-name="T1">20</text:span><text:span text:style-name="T2">26</text:span>',
-      `N° ${newCri} du ${dd}/${dm}/<text:span text:style-name="T1">20</text:span><text:span text:style-name="T2">${dy.slice(2)}</text:span>`
-    );
-
-    // ── 2. Date formation ──
-    // SN1 : spans séparés (T8)
-    xml = xml.replace(
-      '<text:span text:style-name="T8">XX</text:span>/<text:span text:style-name="T8">XX</text:span>/202<text:span text:style-name="T8">6</text:span>',
-      `<text:span text:style-name="T8">${dd}</text:span>/<text:span text:style-name="T8">${dm}</text:span>/20<text:span text:style-name="T8">${dy.slice(2)}</text:span>`
-    );
-    // PSC : date dans le même paragraphe que le N° PV — déjà traitée ci-dessus via le replace du N° PV
-    // PSC : cellule date séparée si elle existe (style T10 ou autre)
-    xml = xml.replace(
-      '<text:span text:style-name="T10">XX</text:span>/<text:span text:style-name="T10">XX</text:span>/202<text:span text:style-name="T10">6</text:span>',
-      `<text:span text:style-name="T10">${dd}</text:span>/<text:span text:style-name="T10">${dm}</text:span>/20<text:span text:style-name="T10">${dy.slice(2)}</text:span>`
-    );
-
-    // ── 3. Lieu ──
-    // SN1 : spans T8/T9
-    xml = xml.replace(
-      '<text:span text:style-name="T8">XXXXXX</text:span><text:span text:style-name="T9"> (</text:span><text:span text:style-name="T8">56</text:span><text:span text:style-name="T9">)</text:span>',
-      `<text:span text:style-name="T8">${escXml(lieuVille)}</text:span><text:span text:style-name="T9"> (</text:span><text:span text:style-name="T8">${lieuDept}</text:span><text:span text:style-name="T9">)</text:span>`
-    );
-    // PSC : spans T10/T11
-    xml = xml.replace(
-      '<text:span text:style-name="T10">XXXXXX</text:span><text:span text:style-name="T11"> (</text:span><text:span text:style-name="T10">56</text:span><text:span text:style-name="T11">)</text:span>',
-      `<text:span text:style-name="T10">${escXml(lieuVille)}</text:span><text:span text:style-name="T11"> (</text:span><text:span text:style-name="T10">${lieuDept}</text:span><text:span text:style-name="T11">)</text:span>`
-    );
-
-    // ── 3. Nb présents / reçus ──
-    // Les deux "10" dans Tableau12
-    let countReplaced = 0;
-    xml = xml.replace(/<text:p text:style-name="P22">10<\/text:p>/g, (match) => {
-      countReplaced++;
-      if (countReplaced === 1) return `<text:p text:style-name="P22">${nbPresents}</text:p>`;
-      return `<text:p text:style-name="P22">${nbRecus}</text:p>`;
-    });
-
-    // ── 4. Responsable pédagogique dans Tableau5 row 2 ──
-    // Un seul replace pour NOM + Prénom + Qualification ensemble
-    const respNom = resp ? resp.nom : '';
-    const respPrenom = resp ? resp.prenom : '';
-    xml = xml.replace(
-      '<table:table-row table:style-name="Tableau5.3"><table:table-cell table:style-name="Tableau5.A3" office:value-type="string"><text:p text:style-name="P27"/></table:table-cell><table:table-cell table:style-name="Tableau5.A3" office:value-type="string"><text:p text:style-name="P27"/></table:table-cell><table:table-cell table:style-name="Tableau5.A3" office:value-type="string"><text:p text:style-name="P19">F SauveTaGe</text:p></table:table-cell>',
-      `<table:table-row table:style-name="Tableau5.3"><table:table-cell table:style-name="Tableau5.A3" office:value-type="string"><text:p text:style-name="P27">${escXml(respNom)}</text:p></table:table-cell><table:table-cell table:style-name="Tableau5.A3" office:value-type="string"><text:p text:style-name="P27">${escXml(respPrenom)}</text:p></table:table-cell><table:table-cell table:style-name="Tableau5.A3" office:value-type="string"><text:p text:style-name="P19">${escXml(qualif)}</text:p></table:table-cell>`
-    );
-
-    // ── 5. Pied de page PV n° ──
-    xml = xml.replace(
-      '<text:span text:style-name="T27">XXXXX</text:span>',
-      `<text:span text:style-name="T27">${escXml(cri)}</text:span>`
-    );
-    xml = xml.replace(
-      '<text:span text:style-name="T29">XX</text:span><text:span text:style-name="T30">/</text:span><text:span text:style-name="T29">XX</text:span><text:span text:style-name="T30">/202</text:span><text:span text:style-name="T29">6</text:span>',
-      `<text:span text:style-name="T29">${dd}</text:span><text:span text:style-name="T30">/</text:span><text:span text:style-name="T29">${dm}</text:span><text:span text:style-name="T30">/20</text:span><text:span text:style-name="T29">${dy.slice(2)}</text:span>`
-    );
-
-    // ── 6. Participants dans Tableau4 ──
-    // Les 10 lignes de données (rows 1-10, row 0 = header)
-    // Row 1 = RGBRET (formation admin fixe)
-    // Rows 2-10 = empty data rows à remplir
-
-    // Template d'une cellule de donnée vide (style P47)
-    function makeCell(style, text, isLast = false) {
-      const cellStyle = isLast ? 'Tableau4.I2' : 'Tableau4.A2';
-      const pStyle = isLast ? 'P46' : (style || 'P47');
-      return `<table:table-cell table:style-name="${cellStyle}" office:value-type="string"><text:p text:style-name="${pStyle}">${escXml(text)}</text:p></table:table-cell>`;
+    // ── Remplacement des marqueurs simples ──
+    // Le template ODT doit contenir ces marqueurs en texte brut dans les cellules
+    const markers = {
+      '{NumCRI}':        escXml(String(cri)),
+      '{DateFormation}': escXml(dateFormation),
+      '{LieuVille}':     escXml(lieuVille),
+      '{LieuDept}':      escXml(lieuDept),
+      '{NbPresents}':    String(nbPresents),
+      '{NbRecus}':       String(nbRecus),
+      '{RespNom}':       escXml(resp?.nom || ''),
+      '{RespPrenom}':    escXml(resp?.prenom || ''),
+      '{RespQualif}':    escXml(qualif),
+      '{FormNom}':       escXml(formation.formateur_nom || ''),
+      '{FormPrenom}':    escXml(formation.formateur_prenom || ''),
+      '{FormQualif}':    escXml(formation.formateur_qualif || ''),
+    };
+    for (const [marker, value] of Object.entries(markers)) {
+      xml = xml.replaceAll(marker, value);
     }
 
-    function makeParticipantRow(p, index) {
-      const pers = p.personnel || {};
-      const resultat = p.resultat === 'Validé' ? 'A' : p.resultat === 'Non validé' ? 'I' : '';
-      const ddn = pers.date_naissance ? fmtDatePV(pers.date_naissance) : '';
-      return '<table:table-row table:style-name="Tableau4.2">' +
-        makeCell('P44', pers.nigend || '') +
-        makeCell('P45', pers.nom || '') +
-        makeCell('P45', pers.prenom || '') +
-        makeCell('P45', pers.sexe || '') +
-        makeCell('P45', ddn) +
-        makeCell('P45', pers.ville_naissance || '') +
-        makeCell('P44', 'RGBRET') +
-        makeCell('P45', pers.unite || '') +
-        makeCell('P46', resultat, true) +
-        '</table:table-row>';
-    }
-
-    function makeEmptyRow() {
-      return '<table:table-row table:style-name="Tableau4.2">' +
-        makeCell('P47', '') +
-        makeCell('P47', '') +
-        makeCell('P47', '') +
-        makeCell('P47', '') +
-        makeCell('P47', '') +
-        makeCell('P47', '') +
-        makeCell('P47', '') +
-        makeCell('P47', '') +
-        makeCell('P47', '', true) +
-        '</table:table-row>';
-    }
-
-    // Rebuild all 10 data rows
-    let newRows = '';
-    for (let i = 0; i < 10; i++) {
-      if (i === 0) {
-        // First row = RGBRET (formation admin) - always empty participant data but RGBRET in col 7
-        // Actually per the doc, row 1 just has RGBRET in col 7, rest empty
-        // But we need actual participant data here too
-        newRows += makeParticipantRow(participants[0] || {}, 0);
-      } else if (i < participants.length) {
-        newRows += makeParticipantRow(participants[i], i);
-      } else {
-        newRows += makeEmptyRow();
-      }
-    }
-
-    // Replace the 10 data rows in Tableau4
-    // They all have style Tableau4.2
-    const dataRowRegex = /(<table:table-row table:style-name="Tableau4\.2">.*?<\/table:table-row>\s*){10}/s;
-    if (dataRowRegex.test(xml)) {
-      xml = xml.replace(dataRowRegex, newRows);
-    } else {
-      // Fallback: replace one by one
-      let replaced = 0;
-      xml = xml.replace(/<table:table-row table:style-name="Tableau4\.2">.*?<\/table:table-row>/gs, (match) => {
-        if (replaced < 10) {
-          replaced++;
-          const i = replaced - 1;
-          if (i === 0) return makeParticipantRow(participants[0] || {personnel:{}}, 0);
-          if (i < participants.length) return makeParticipantRow(participants[i], i);
-          return makeEmptyRow();
+    // ── Participants : ligne marqueur → 10 lignes de données ──
+    // Le template doit contenir UNE ligne avec {NIGEND},{NOM},{PRENOM},{SEXE},{DDN},{LIEUNAISSANCE},RGBRET,{UNITE},{RESULTAT}
+    // On trouve la ligne <table:table-row> qui contient {NIGEND}, on la duplique 10 fois
+    const rowMarkerRegex = /(<table:table-row\b[^>]*>(?:(?!<\/table:table-row>)[\s\S])*\{NIGEND\}[\s\S]*?<\/table:table-row>)/;
+    const rowMatch = xml.match(rowMarkerRegex);
+    if (rowMatch) {
+      const templateRow = rowMatch[1];
+      let newRows = '';
+      for (let i = 0; i < 10; i++) {
+        const p = participants[i];
+        if (p) {
+          const pers = p.personnel || {};
+          const resultat = p.resultat === 'Validé' ? 'A' : p.resultat === 'Non validé' ? 'I' : '';
+          const ddn = pers.date_naissance ? fmtDatePV(pers.date_naissance) : '';
+          newRows += templateRow
+            .replace('{NIGEND}',        escXml(pers.nigend || ''))
+            .replace('{NOM}',           escXml(pers.nom || ''))
+            .replace('{PRENOM}',        escXml(pers.prenom || ''))
+            .replace('{SEXE}',          escXml(pers.sexe || ''))
+            .replace('{DDN}',           escXml(ddn))
+            .replace('{LIEUNAISSANCE}', escXml(pers.ville_naissance || ''))
+            .replace('{UNITE}',         escXml(pers.unite || ''))
+            .replace('{RESULTAT}',      escXml(resultat));
+        } else {
+          // Ligne vide : on vide tous les marqueurs
+          newRows += templateRow
+            .replace(/\{NIGEND\}/g, '').replace(/\{NOM\}/g, '').replace(/\{PRENOM\}/g, '')
+            .replace(/\{SEXE\}/g, '').replace(/\{DDN\}/g, '').replace(/\{LIEUNAISSANCE\}/g, '')
+            .replace(/\{UNITE\}/g, '').replace(/\{RESULTAT\}/g, '');
         }
-        return match;
-      });
+      }
+      xml = xml.replace(rowMarkerRegex, newRows);
     }
 
     // ── Sauvegarder et télécharger ──
