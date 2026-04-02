@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V31</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V32</span></div>
     </div>
   </div>
 
@@ -3283,23 +3283,63 @@ async function genererPV() {
     const newCri = escXml(String(cri));
     const newDate = `${dd}/${dm}/20${dy.slice(2)}`;
 
-    // ── 1. N° PV ──
+    // ── 1. N° PV (encart principal) ──
+    // Pattern robuste : N° XXXX du XX/XX/20XX (insensible aux noms de styles ODF)
+    // Forme 1 : spans séparés autour de XXXX et XX/XX/20XX (SN1)
+    let pvReplaced = false;
     xml = xml.replace(
-      '<text:span text:style-name="T1">XXXX</text:span> du <text:span text:style-name="T1">XX/XX/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">26</text:span>',
-      `<text:span text:style-name="T1">${newCri}</text:span> du <text:span text:style-name="T1">${dd}/${dm}/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">${dy.slice(2)}</text:span>`
+      /(<text:span[^>]*>)XXXX(<\/text:span> du <text:span[^>]*>)XX\/XX\/(<\/text:span><text:span[^>]*>20<\/text:span><text:span[^>]*>)26(<\/text:span>)/,
+      (_, s1, mid, s3, s4end) => { pvReplaced = true; return `${s1}${newCri}${mid}${dd}/${dm}/${s3}${dy.slice(2)}${s4end}`; }
     );
+    if (!pvReplaced) {
+      // Forme 2 : span unique contenant tout N° XXXX du XX/XX/2026
+      xml = xml.replace(
+        /(<text:span[^>]*>)(N°\s*)?XXXX( du )XX\/XX\/20\d\d(<\/text:span>)/,
+        (_, open, prefix, sep, close) => { pvReplaced = true; return `${open}${prefix||''}${newCri}${sep}${dd}/${dm}/${dy}${close}`; }
+      );
+    }
+    if (!pvReplaced) {
+      // Forme 3 : texte brut dans un paragraphe (ex. templates PSC)
+      xml = xml.replace(/>N°\s*XXXX du XX\/XX\/20\d\d</g, `>N° ${newCri} du ${dd}/${dm}/${dy}<`);
+    }
 
-    // ── 2. Date formation ──
+    // ── 2. Date formation (encart dates) ──
+    // Forme 1 : spans séparés XX/XX/202X (SN1)
+    let dateReplaced = false;
     xml = xml.replace(
-      '<text:span text:style-name="T8">XX</text:span>/<text:span text:style-name="T8">XX</text:span>/202<text:span text:style-name="T8">6</text:span>',
-      `<text:span text:style-name="T8">${dd}</text:span>/<text:span text:style-name="T8">${dm}</text:span>/20<text:span text:style-name="T8">${dy.slice(2)}</text:span>`
+      /(<text:span[^>]*>)XX(<\/text:span>\/<text:span[^>]*>)XX(<\/text:span>\/20\d?<text:span[^>]*>)\d(<\/text:span>)/,
+      (_, s1, mid1, s2, s3, s4) => { dateReplaced = true; return `${s1}${dd}${mid1}${dm}${s3}${dy.slice(2)}${s4}`; }
     );
+    if (!dateReplaced) {
+      // Forme 2 : XX/XX/2026 dans n'importe quel span
+      xml = xml.replace(
+        /(<text:span[^>]*>)XX(<\/text:span>\/<text:span[^>]*>)XX(<\/text:span>\/202<text:span[^>]*>)6(<\/text:span>)/,
+        (_, s1, mid, s2, s3, s4) => { dateReplaced = true; return `${s1}${dd}${mid}${dm}${s3}${dy.slice(2)}${s4}`; }
+      );
+    }
+    if (!dateReplaced) {
+      // Forme 3 : texte brut XX/XX/2026
+      xml = xml.replace(/>XX\/XX\/20\d\d</g, `>${dd}/${dm}/${dy}<`);
+    }
 
-    // ── 3. Lieu ──
+    // ── 3. Lieu (encart lieu) ──
+    // Forme 1 : spans séparés XXXXXX (56) (SN1)
+    let lieuReplaced = false;
     xml = xml.replace(
-      '<text:span text:style-name="T8">XXXXXX</text:span><text:span text:style-name="T9"> (</text:span><text:span text:style-name="T8">56</text:span><text:span text:style-name="T9">)</text:span>',
-      `<text:span text:style-name="T8">${escXml(lieuVille)}</text:span><text:span text:style-name="T9"> (</text:span><text:span text:style-name="T8">${lieuDept}</text:span><text:span text:style-name="T9">)</text:span>`
+      /(<text:span[^>]*>)XXXXXX(<\/text:span><text:span[^>]*> \(<\/text:span><text:span[^>]*>)56(<\/text:span><text:span[^>]*>\)<\/text:span>)/,
+      (_, s1, mid, dept, end) => { lieuReplaced = true; return `${s1}${escXml(lieuVille)}${mid}${lieuDept}${end}`; }
     );
+    if (!lieuReplaced) {
+      // Forme 2 : span(s) contenant XXXXXX (56)
+      xml = xml.replace(
+        /(<text:span[^>]*>)XXXXXX(<\/text:span>)(\s*\([^)]*\)|<[^>]*> \(<\/[^>]*><[^>]*>56<\/[^>]*><[^>]*>\)<\/[^>]*>)/,
+        (_, s1, s2, rest) => { lieuReplaced = true; return `${s1}${escXml(lieuVille)}${s2} (${lieuDept})`; }
+      );
+    }
+    if (!lieuReplaced) {
+      // Forme 3 : texte brut XXXXXX (56)
+      xml = xml.replace(/XXXXXX \(\d+\)/g, `${escXml(lieuVille)} (${lieuDept})`);
+    }
 
     // ── 3. Nb présents / reçus ──
     // Les deux "10" dans Tableau12
