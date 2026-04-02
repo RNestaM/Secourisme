@@ -679,7 +679,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V14</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V15</span></div>
     </div>
   </div>
 
@@ -1182,7 +1182,7 @@ tbody td {
 
 <!-- Modal : Historique formations d'un agent -->
 <div class="modal-overlay" id="modal-historique-agent">
-  <div class="modal" style="max-width:680px">
+  <div class="modal" style="max-width:860px">
     <div class="modal-header">
       <h3 id="historique-agent-title">Historique formations</h3>
       <button class="modal-close" onclick="closeModal('modal-historique-agent')">✕</button>
@@ -2114,44 +2114,64 @@ async function loadStats() {
   const container = document.getElementById('stats-content');
   container.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement...</div>';
 
-  const { data } = await db.from('stats_annuelles').select('*');
-  if (!data || data.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="icon">📈</div><p>Aucune donnée</p></div>';
+  // Charger tout l'historique avec les infos agents
+  const { data, error } = await db
+    .from('historique_formations')
+    .select('date_formation, type_formation, format, valide, personnel_id')
+    .order('date_formation', { ascending: false });
+
+  if (error || !data || data.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">📈</div><p>Historique vide</p></div>';
     return;
   }
 
-  // Group by year
-  const years = [...new Set(data.map(d => d.annee))].sort((a,b) => b-a);
+  // Agréger par année / type / format
+  const agg = {};
+  data.forEach(h => {
+    const year = h.date_formation.substring(0, 4);
+    const key = `${year}__${h.type_formation}__${h.format}`;
+    if (!agg[key]) agg[key] = { year, type: h.type_formation, format: h.format, total: 0, valides: 0, agents: new Set() };
+    agg[key].total++;
+    if (h.valide) agg[key].valides++;
+    agg[key].agents.add(h.personnel_id);
+  });
+
+  // Trier et grouper par année
+  const rows = Object.values(agg).sort((a,b) => b.year - a.year || a.type.localeCompare(b.type) || a.format.localeCompare(b.format));
+  const years = [...new Set(rows.map(r => r.year))];
 
   container.innerHTML = years.map(year => {
-    const rows = data.filter(d => d.annee === year);
-    const totalSessions = rows.reduce((s,r) => s + (r.nb_sessions||0), 0);
-    const totalParticipants = rows.reduce((s,r) => s + (r.nb_participants||0), 0);
-    const totalValides = rows.reduce((s,r) => s + (r.nb_valides||0), 0);
+    const yearRows = rows.filter(r => r.year === year);
+    const totAgents = new Set(data.filter(h => h.date_formation.startsWith(year)).map(h => h.personnel_id)).size;
+    const totValides = yearRows.reduce((s,r) => s + r.valides, 0);
+    const totTotal = yearRows.reduce((s,r) => s + r.total, 0);
 
     return `
     <div class="table-wrapper" style="margin-bottom:20px">
       <div class="table-toolbar">
         <strong style="font-size:16px">📅 ${year}</strong>
-        <span style="font-size:13px;color:#888">${totalSessions} session(s) · ${totalParticipants} participant(s) · ${totalValides} validé(s)</span>
+        <span style="font-size:13px;color:#888">
+          ${totTotal} passage(s) · ${totAgents} agent(s) distinct(s) · ${totValides} validé(s)
+        </span>
       </div>
       <table class="stats-table">
         <thead>
           <tr>
-            <th>Type</th><th>Format</th><th>Sessions</th>
-            <th>Participants</th><th>Présents</th><th>Validés</th><th>Taux</th>
+            <th>Type</th><th>Format</th>
+            <th>Nb passages</th><th>Agents distincts</th>
+            <th>Validés</th><th>Non validés</th><th>Taux réussite</th>
           </tr>
         </thead>
         <tbody>
-          ${rows.map(r => `
+          ${yearRows.map(r => `
           <tr>
-            <td><strong>${r.type_formation}</strong></td>
-            <td>${r.format}</td>
-            <td>${r.nb_sessions}</td>
-            <td>${r.nb_participants}</td>
-            <td>${r.nb_presents}</td>
-            <td>${r.nb_valides}</td>
-            <td>${r.nb_presents > 0 ? Math.round(r.nb_valides/r.nb_presents*100)+'%' : '—'}</td>
+            <td><strong>${r.type}</strong></td>
+            <td><span class="badge-type type-${r.type.toLowerCase()}-${r.format.toLowerCase()}">${r.format}</span></td>
+            <td>${r.total}</td>
+            <td>${r.agents.size}</td>
+            <td style="color:var(--vert);font-weight:600">${r.valides}</td>
+            <td style="color:var(--rouge)">${r.total - r.valides}</td>
+            <td>${r.total > 0 ? Math.round(r.valides/r.total*100)+'%' : '—'}</td>
           </tr>`).join('')}
         </tbody>
       </table>
@@ -2711,42 +2731,59 @@ Validés → nouvelle validité. Non validés → historique sans validité.`)) 
 
 // ─── HISTORIQUE AGENT ─────────────────────────────────────
 async function openHistoriqueModal(personnelId, nomComplet) {
-  document.getElementById('historique-agent-title').textContent = 'Historique — ' + nomComplet;
+  document.getElementById('historique-agent-title').textContent = 'Dossier — ' + nomComplet;
   document.getElementById('historique-agent-body').innerHTML = '<div class="loading"><div class="spinner"></div> Chargement...</div>';
   openModal('modal-historique-agent');
 
-  const { data, error } = await db
-    .from('historique_formations')
-    .select('*, formations(numero_cri, lieu, formateurs(nom, prenom))')
-    .eq('personnel_id', personnelId)
-    .order('date_formation', { ascending: false });
+  // Charger agent + historique en parallèle
+  const [{ data: agent }, { data, error }] = await Promise.all([
+    db.from('personnel_formations_resume').select('*').eq('id', personnelId).single(),
+    db.from('historique_formations')
+      .select('*, formations(numero_cri, lieu, formateurs(nom, prenom))')
+      .eq('personnel_id', personnelId)
+      .order('date_formation', { ascending: false })
+  ]);
 
   const body = document.getElementById('historique-agent-body');
-  if (error || !data || data.length === 0) {
-    body.innerHTML = '<div class="empty-state"><div class="icon">📅</div><p>Aucune formation enregistrée</p></div>';
-    return;
+  const histo = data || [];
+  const psc = histo.filter(h => h.type_formation === 'PSC');
+  const sn1 = histo.filter(h => h.type_formation === 'SN1');
+
+  // Calculs résumé
+  const pscValide = psc.filter(h => h.valide);
+  const sn1Valide = sn1.filter(h => h.valide);
+  const dernierePSC = pscValide[0]?.date_formation || null;
+  const derniereSN1 = sn1Valide[0]?.date_formation || null;
+
+  function validBadge(dateStr) {
+    if (!dateStr) return '<span style="color:#aaa">—</span>';
+    const cls = validClass(dateStr);
+    return `<span class="${cls}">${fmtDate(dateStr)}</span>`;
   }
 
-  const psc = data.filter(h => h.type_formation === 'PSC');
-  const sn1 = data.filter(h => h.type_formation === 'SN1');
-
-  function renderTable(rows, type) {
-    if (!rows.length) return '<p style="color:#aaa;font-size:13px;padding:8px 0">Aucune formation ' + type + '</p>';
+  function renderTable(rows) {
+    if (!rows.length) return '<p style="color:#aaa;font-size:13px;padding:8px 0">Aucune formation enregistrée</p>';
     return `<table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="background:var(--gris-clair)">
         <th style="padding:7px 10px;text-align:left">Date</th>
         <th style="padding:7px 10px;text-align:left">Format</th>
-        <th style="padding:7px 10px;text-align:center">Validé</th>
+        <th style="padding:7px 10px;text-align:center">Résultat</th>
         <th style="padding:7px 10px;text-align:left">N° CRI</th>
-        <th style="padding:7px 10px;text-align:left">Commentaire</th>
+        <th style="padding:7px 10px;text-align:left">Lieu</th>
+        <th style="padding:7px 10px;text-align:left">Formateur</th>
+        <th style="padding:7px 10px;text-align:left">Note</th>
       </tr></thead>
       <tbody>
         ${rows.map(h => `
-        <tr style="border-bottom:1px solid var(--bordure)">
+        <tr style="border-bottom:1px solid var(--bordure);${h.valide?'':'background:#fff8f8'}">
           <td style="padding:7px 10px;font-weight:600">${fmtDate(h.date_formation)}</td>
           <td style="padding:7px 10px"><span class="badge-type type-${h.type_formation.toLowerCase()}-${h.format.toLowerCase()}">${h.format}</span></td>
-          <td style="padding:7px 10px;text-align:center">${h.valide ? '<span style="color:var(--vert)">✅</span>' : '<span style="color:var(--rouge)">❌</span>'}</td>
+          <td style="padding:7px 10px;text-align:center">${h.valide
+            ? '<span style="color:var(--vert);font-weight:600">✅ Validé</span>'
+            : '<span style="color:var(--rouge)">❌ Non validé</span>'}</td>
           <td style="padding:7px 10px">${h.formations?.numero_cri || '—'}</td>
+          <td style="padding:7px 10px;font-size:12px">${h.formations?.lieu || '—'}</td>
+          <td style="padding:7px 10px;font-size:12px">${h.formations?.formateurs ? h.formations.formateurs.prenom+' '+h.formations.formateurs.nom : '—'}</td>
           <td style="padding:7px 10px;color:#888;font-size:12px">${h.notes || ''}</td>
         </tr>`).join('')}
       </tbody>
@@ -2754,19 +2791,41 @@ async function openHistoriqueModal(personnelId, nomComplet) {
   }
 
   body.innerHTML = `
-    <div style="margin-bottom:20px">
-      <div style="font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--bleu);margin-bottom:8px">
-        PSC — ${psc.length} formation(s)
-        ${psc.filter(h=>h.valide).length > 0 ? '<span style="font-size:12px;color:var(--vert);font-weight:400;margin-left:8px">Dernière validée : ' + fmtDate(psc.filter(h=>h.valide)[0]?.date_formation) + '</span>' : ''}
+    <!-- Résumé agent -->
+    <div style="background:var(--bleu);color:white;border-radius:10px;padding:16px 20px;margin-bottom:20px;display:flex;gap:24px;flex-wrap:wrap">
+      <div>
+        <div style="opacity:0.7;font-size:11px;text-transform:uppercase;letter-spacing:1px">Agent</div>
+        <div style="font-size:16px;font-weight:700">${agent?.nom||''} ${agent?.prenom||''}</div>
+        <div style="opacity:0.8;font-size:13px">${agent?.nigend||'Civil'} · ${agent?.unite||'—'}</div>
       </div>
-      ${renderTable(psc, 'PSC')}
+      <div>
+        <div style="opacity:0.7;font-size:11px;text-transform:uppercase;letter-spacing:1px">PSC</div>
+        <div style="font-size:15px;font-weight:600">${pscValide.length} validée(s) / ${psc.length} total</div>
+        <div style="font-size:12px;opacity:0.8">Dernière : ${fmtDate(dernierePSC)} · Validité : ${agent?.psc_validite ? fmtDate(agent.psc_validite) : '—'}</div>
+      </div>
+      <div>
+        <div style="opacity:0.7;font-size:11px;text-transform:uppercase;letter-spacing:1px">SN1</div>
+        <div style="font-size:15px;font-weight:600">${sn1Valide.length} validée(s) / ${sn1.length} total</div>
+        <div style="font-size:12px;opacity:0.8">Dernière : ${fmtDate(derniereSN1)} · Validité : ${agent?.sn1_validite ? fmtDate(agent.sn1_validite) : '—'} · FC possible : ${agent?.sn1_possible_fc ? fmtDate(agent.sn1_possible_fc) : '—'}</div>
+      </div>
     </div>
-    <div>
-      <div style="font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--vert);margin-bottom:8px">
-        SN1 — ${sn1.length} formation(s)
-        ${sn1.filter(h=>h.valide).length > 0 ? '<span style="font-size:12px;color:var(--vert);font-weight:400;margin-left:8px">Dernière validée : ' + fmtDate(sn1.filter(h=>h.valide)[0]?.date_formation) + '</span>' : ''}
+
+    <!-- PSC -->
+    <div style="margin-bottom:20px">
+      <div style="font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--bleu);margin-bottom:8px;display:flex;align-items:center;gap:10px">
+        <span>PSC — ${psc.length} formation(s)</span>
+        ${dernierePSC ? `<span style="font-weight:400;font-size:12px;color:#888">Validité : ${validBadge(agent?.psc_validite)}</span>` : ''}
       </div>
-      ${renderTable(sn1, 'SN1')}
+      ${renderTable(psc)}
+    </div>
+
+    <!-- SN1 -->
+    <div>
+      <div style="font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--vert);margin-bottom:8px;display:flex;align-items:center;gap:10px">
+        <span>SN1 — ${sn1.length} formation(s)</span>
+        ${derniereSN1 ? `<span style="font-weight:400;font-size:12px;color:#888">Validité : ${validBadge(agent?.sn1_validite)} · FC possible : ${validBadge(agent?.sn1_possible_fc)}</span>` : ''}
+      </div>
+      ${renderTable(sn1)}
     </div>
   `;
 }
