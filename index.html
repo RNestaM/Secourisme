@@ -34,7 +34,7 @@ body {
 }
 
 /* ── LOGIN ─────────────────────────────────────── */
-#login-screen {
+#login-screen { display: none;
   min-height: 100vh;
   background: linear-gradient(145deg, var(--gris-fonce) 0%, var(--bleu) 100%);
   display: flex;
@@ -633,7 +633,7 @@ tbody td {
 <body>
 
 <!-- ══════════════════════════════════════════════ LOGIN ══ -->
-<div id="login-screen">
+<div id="login-screen" style="display:none">
   <div class="login-box">
     <div class="login-logo">
       <div class="badge">🛡️</div>
@@ -1981,6 +1981,6 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 });
 </script>
 
-<div id="version-badge"><span id="github-version">V4</span></div>
+<div id="version-badge"><span id="github-version">V5</span></div>
 </body>
 </html>
