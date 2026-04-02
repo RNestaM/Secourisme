@@ -679,7 +679,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V18</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V19</span></div>
     </div>
   </div>
 
@@ -1696,7 +1696,7 @@ async function loadFormations() {
   try {
     const { data, error } = await db
       .from('formations')
-      .select('*, formateurs(nom, prenom)')
+      .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom)')
       .order('date_formation', {ascending: false});
 
     if (error) throw error;
