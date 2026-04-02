@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V43</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V45</span></div>
     </div>
   </div>
 
@@ -3265,15 +3265,11 @@ async function genererPV() {
     }
     let xml = await zip.file('content.xml').async('string');
 
-    // DEBUG : vérifier que {RESULTAT} est bien remplacé dans la ligne générée
-    const _dbgResCheck = (row) => {
-      if (row.includes('{RESULTAT}')) console.log('[DEBUG] {RESULTAT} NON remplacé dans la ligne générée — extrait:', JSON.stringify(row.slice(row.indexOf('{RESULTAT}')-20, row.indexOf('{RESULTAT}')+30)));
-    };
-
-    // ── Normalisation : LibreOffice fragmente parfois les marqueurs entre spans
-    // ex: "{FormNom<span>}</span>" → "{FormNom}"
-    // On supprime tous les spans qui ne contiennent que "}" immédiatement après un marqueur ouvert
+    // ── Normalisation : LibreOffice fragmente parfois les marqueurs entre spans ou paragraphes
+    // Forme 1 : "{FormNom<span>}</span>"
     xml = xml.replace(/(\{[A-Za-z]+)<text:span[^>]*>(\})<\/text:span>/g, '$1$2');
+    // Forme 2 : "{RESULTAT" en fin de paragraphe, "}" au début du paragraphe suivant (retour à la ligne dans la cellule)
+    xml = xml.replace(/(\{[A-Za-z]+)<\/text:p>\s*<text:p[^>]*>(\})/g, '$1$2');
 
     // ── Données ──
     const date = formation.date_formation;
@@ -3331,7 +3327,6 @@ async function genererPV() {
             .replace('{LIEUNAISSANCE}', escXml(pers.ville_naissance || ''))
             .replace('{UNITE}',         escXml(pers.unite || ''))
             .replace('{RESULTAT}',      escXml(resultat));
-          if (i === 0) _dbgResCheck(newRows);
         } else {
           // Ligne vide : on vide tous les marqueurs y compris RGBRET
           newRows += templateRow
