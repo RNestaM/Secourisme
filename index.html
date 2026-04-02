@@ -679,7 +679,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V16</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V17</span></div>
     </div>
   </div>
 
@@ -1491,7 +1491,7 @@ async function loadDashboard() {
     return;
   }
   tbody.innerHTML = recent.map(f => {
-    const resp = f.formation_responsable;
+    const resp = f.responsable;
     return `
     <tr onclick="openFormationDetail('${f.id}')">
       <td>${fmtDate(f.date_formation)}</td>
@@ -1619,33 +1619,58 @@ function openPersonnelModal(id = null) {
 }
 
 async function savePersonnel() {
+  const nigend = document.getElementById('p-nigend').value.trim() || null;
+  const nom = document.getElementById('p-nom').value.trim().toUpperCase();
+  const prenom = document.getElementById('p-prenom').value.trim();
+  if (!nom || !prenom) { showToast('Nom et Prénom sont obligatoires', 'error'); return; }
+
+  // Données fixes de l'agent (table personnel)
   const payload = {
-    nigend: document.getElementById('p-nigend').value.trim(),
-    nom: document.getElementById('p-nom').value.trim().toUpperCase(),
-    prenom: document.getElementById('p-prenom').value.trim(),
+    nigend,
+    nom,
+    prenom,
     sexe: document.getElementById('p-sexe').value,
     date_naissance: document.getElementById('p-ddn').value || null,
     ville_naissance: document.getElementById('p-ville').value.trim(),
     unite: document.getElementById('p-unite').value.trim().toUpperCase(),
-    psc_date_derniere: document.getElementById('p-psc-date').value || null,
-    psc_validite: document.getElementById('p-psc-validite').value || null,
-    psc_nb_total: parseInt(document.getElementById('p-psc-nb').value) || 0,
-    sn1_date_derniere: document.getElementById('p-sn1-date').value || null,
-    sn1_validite: document.getElementById('p-sn1-validite').value || null,
-    sn1_nb_total: parseInt(document.getElementById('p-sn1-nb').value) || 0,
-    sn1_possible_fc: document.getElementById('p-sn1-fc').value || null,
   };
-  if (!payload.nom || !payload.prenom) {
-    showToast('Nom et Prénom sont obligatoires', 'error'); return;
-  }
 
+  // Dates formations saisies manuellement → historique
+  const pscDate = document.getElementById('p-psc-date').value || null;
+  const sn1Date = document.getElementById('p-sn1-date').value || null;
+
+  let personnelId = editingPersonnelId;
   let error;
+
   if (editingPersonnelId) {
     ({ error } = await db.from('personnel').update(payload).eq('id', editingPersonnelId));
   } else {
-    ({ error } = await db.from('personnel').insert(payload));
+    const { data: inserted, error: errIns } = await db.from('personnel').insert(payload).select().single();
+    error = errIns;
+    if (inserted) personnelId = inserted.id;
   }
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+
+  // Insérer dans l'historique si dates renseignées
+  if (personnelId && pscDate) {
+    await db.from('historique_formations').upsert({
+      personnel_id: personnelId,
+      date_formation: pscDate,
+      type_formation: 'PSC',
+      format: 'FC',
+      valide: true,
+    }, { onConflict: 'personnel_id,date_formation,type_formation', ignoreDuplicates: true });
+  }
+  if (personnelId && sn1Date) {
+    await db.from('historique_formations').upsert({
+      personnel_id: personnelId,
+      date_formation: sn1Date,
+      type_formation: 'SN1',
+      format: 'FC',
+      valide: true,
+    }, { onConflict: 'personnel_id,date_formation,type_formation', ignoreDuplicates: true });
+  }
+
   showToast(editingPersonnelId ? 'Agent mis à jour' : 'Agent ajouté', 'success');
   closeModal('modal-personnel');
   loadPersonnel();
@@ -1719,7 +1744,7 @@ function renderFormations(list) {
       <td><span class="badge-type type-${f.type_formation.toLowerCase()}-${f.format.toLowerCase()}">${f.type_formation}</span></td>
       <td>${f.format}</td>
       <td>${f.moment||'—'}</td>
-      <td>${f.formateurs ? f.formateurs.prenom+' '+f.formateurs.nom : '—'}</td>
+      <td>${f.responsable ? f.responsable.prenom+' '+f.responsable.nom : '—'}</td>
       <td>${f.numero_cri||'—'}</td>
       <td style="text-align:center">${nbPart}</td>
       <td><span class="badge-statut ${statutClass(f.statut)}">${f.statut}</span></td>
@@ -1832,7 +1857,7 @@ async function openFormationDetail(id) {
 
   const { data: f } = await db
     .from('formations')
-    .select('*, formateurs(nom, prenom)')
+    .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom)')
     .eq('id', id)
     .single();
 
@@ -1844,7 +1869,7 @@ async function openFormationDetail(id) {
       <h2>${f.type_formation} ${f.format} — ${fmtDate(f.date_formation)}</h2>
       <div class="meta">
         ${f.moment || ''} · N° CRI ${f.numero_cri || '—'} · ${f.lieu || ''}
-        ${f.formateurs ? ' · ' + f.formateurs.prenom + ' ' + f.formateurs.nom : ''}
+        ${f.responsable ? ' · ' + f.responsable.prenom + ' ' + f.responsable.nom : ''}
       </div>
       <div style="margin-top:10px">
         <span class="badge-statut" style="background:rgba(255,255,255,0.2);color:white">${f.statut}</span>
@@ -2400,12 +2425,12 @@ async function exportPersonnelCSV() {
 }
 
 async function exportFormationsCSV() {
-  const { data } = await db.from('formations').select('*, formateurs(nom,prenom)').order('date_formation', {ascending:false});
+  const { data } = await db.from('formations').select('*, responsable:formateurs!formations_responsable_id_fkey(nom,prenom)').order('date_formation', {ascending:false});
   if (!data) return;
   const headers = ['Date','Type','Format','Moment','Statut','N° CRI','Formateur','Lieu','Nom fichier'];
   const rows = data.map(f => [
     f.date_formation, f.type_formation, f.format, f.moment, f.statut,
-    f.numero_cri, f.formateurs ? f.formateurs.prenom+' '+f.formateurs.nom : '',
+    f.numero_cri, f.responsable ? f.responsable.prenom+' '+f.responsable.nom : '',
     f.lieu, f.nom_fichier
   ]);
   downloadCSV('formations.csv', headers, rows);
@@ -2886,7 +2911,7 @@ async function openHistoriqueModal(personnelId, nomComplet) {
   const [{ data: agent }, { data, error }] = await Promise.all([
     db.from('personnel_formations_resume').select('*').eq('id', personnelId).single(),
     db.from('historique_formations')
-      .select('*, formations(numero_cri, lieu, formateurs(nom, prenom))')
+      .select('*, formations(numero_cri, lieu, responsable:formateurs!formations_responsable_id_fkey(nom, prenom))')
       .eq('personnel_id', personnelId)
       .order('date_formation', { ascending: false })
   ]);
@@ -2930,7 +2955,7 @@ async function openHistoriqueModal(personnelId, nomComplet) {
             : '<span style="color:var(--rouge)">❌ Non validé</span>'}</td>
           <td style="padding:7px 10px">${h.formations?.numero_cri || '—'}</td>
           <td style="padding:7px 10px;font-size:12px">${h.formations?.lieu || '—'}</td>
-          <td style="padding:7px 10px;font-size:12px">${h.formations?.formateurs ? h.formations.formateurs.prenom+' '+h.formations.formateurs.nom : '—'}</td>
+          <td style="padding:7px 10px;font-size:12px">${h.formations?.responsable ? h.formations.responsable.prenom+' '+h.formations.responsable.nom : '—'}</td>
           <td style="padding:7px 10px;color:#888;font-size:12px">${h.notes || ''}</td>
         </tr>`).join('')}
       </tbody>
