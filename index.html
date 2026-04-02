@@ -679,7 +679,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V15</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V16</span></div>
     </div>
   </div>
 
@@ -698,6 +698,16 @@ tbody td {
       <div class="cards-grid" id="dash-cards">
         <div class="card card-stat"><div class="spinner" style="margin:10px auto"></div></div>
       </div>
+
+      <!-- Section Cette Année -->
+      <div id="dash-cette-annee" style="margin-bottom:24px;display:none">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--bleu);margin-bottom:12px">
+          📅 Cette année — Alertes validités
+        </div>
+        <div class="cards-grid" id="dash-alertes"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px" id="dash-alertes-detail"></div>
+      </div>
+
       <div class="table-wrapper">
         <div class="table-toolbar">
           <strong style="font-size:15px">Formations récentes</strong>
@@ -727,8 +737,8 @@ tbody td {
           <button class="btn btn-primary" onclick="openPersonnelModal()">+ Ajouter</button>
         </div>
       </div>
-      <div class="table-wrapper">
-        <div class="table-toolbar">
+      <div class="table-wrapper" style="display:flex;flex-direction:column;height:calc(100vh - 160px)">
+        <div class="table-toolbar" style="flex-shrink:0">
           <input class="search-input" type="text" id="search-personnel"
             placeholder="🔍  Rechercher par NIGEND, nom, prénom, unité..."
             oninput="filterPersonnel()">
@@ -738,14 +748,21 @@ tbody td {
             </select>
           </div>
         </div>
-        <div style="overflow-x:auto">
+        <div style="overflow:auto;flex:1">
           <table>
-            <thead>
+            <thead style="position:sticky;top:0;z-index:10">
               <tr>
-                <th>NIGEND</th><th>Nom</th><th>Prénom</th><th>Sexe</th>
-                <th>Unité</th>
-                <th>PSC — Dernière</th><th>PSC Validité</th><th>Nb PSC</th>
-                <th>SN1 — Dernière</th><th>SN1 Validité</th><th>Nb SN1</th>
+                <th onclick="sortPersonnel('nigend')" style="cursor:pointer;user-select:none">NIGEND <span id="sort-nigend"></span></th>
+                <th onclick="sortPersonnel('nom')" style="cursor:pointer;user-select:none">Nom <span id="sort-nom"></span></th>
+                <th onclick="sortPersonnel('prenom')" style="cursor:pointer;user-select:none">Prénom <span id="sort-prenom"></span></th>
+                <th>Sexe</th>
+                <th onclick="sortPersonnel('unite')" style="cursor:pointer;user-select:none">Unité <span id="sort-unite"></span></th>
+                <th onclick="sortPersonnel('psc_date_derniere')" style="cursor:pointer;user-select:none">PSC — Dernière <span id="sort-psc_date_derniere"></span></th>
+                <th onclick="sortPersonnel('psc_validite')" style="cursor:pointer;user-select:none">PSC Validité <span id="sort-psc_validite"></span></th>
+                <th onclick="sortPersonnel('psc_nb_total')" style="cursor:pointer;user-select:none">Nb PSC <span id="sort-psc_nb_total"></span></th>
+                <th onclick="sortPersonnel('sn1_date_derniere')" style="cursor:pointer;user-select:none">SN1 — Dernière <span id="sort-sn1_date_derniere"></span></th>
+                <th onclick="sortPersonnel('sn1_validite')" style="cursor:pointer;user-select:none">SN1 Validité <span id="sort-sn1_validite"></span></th>
+                <th onclick="sortPersonnel('sn1_nb_total')" style="cursor:pointer;user-select:none">Nb SN1 <span id="sort-sn1_nb_total"></span></th>
                 <th></th>
               </tr>
             </thead>
@@ -882,28 +899,28 @@ tbody td {
         <h3>👥 Gestion des formateurs</h3>
         <div id="formateurs-list"></div>
         <hr style="margin:16px 0;border:none;border-top:1px solid var(--bordure)">
-        <h4 style="margin-bottom:12px;font-size:14px;font-weight:600">Inviter un formateur</h4>
+        <h4 style="margin-bottom:12px;font-size:14px;font-weight:600">Ajouter un formateur</h4>
         <div class="form-row">
           <div class="form-group">
-            <label>Nom</label>
+            <label>Nom *</label>
             <input type="text" id="new-formateur-nom" class="search-input" style="width:100%" placeholder="NOM">
           </div>
           <div class="form-group">
-            <label>Prénom</label>
+            <label>Prénom *</label>
             <input type="text" id="new-formateur-prenom" class="search-input" style="width:100%" placeholder="Prénom">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Email</label>
+            <label>Email <span style="color:#aaa;font-weight:400">(optionnel — pour accès au site)</span></label>
             <input type="email" id="new-formateur-email" class="search-input" style="width:100%" placeholder="prenom.nom@email.fr">
           </div>
           <div class="form-group">
-            <label>Mot de passe temporaire</label>
+            <label>Mot de passe <span style="color:#aaa;font-weight:400">(si email renseigné)</span></label>
             <input type="text" id="new-formateur-pwd" class="search-input" style="width:100%" placeholder="Temporaire123!">
           </div>
         </div>
-        <button class="btn btn-success" onclick="creerFormateur()">➕ Créer le compte</button>
+        <button class="btn btn-success" onclick="creerFormateur()">➕ Ajouter</button>
       </div>
 
       <div class="config-section">
@@ -971,6 +988,17 @@ tbody td {
           <label>N° CRI</label>
           <input type="number" id="f-cri" class="search-input" style="width:100%" placeholder="121">
         </div>
+      </div>
+      <!-- Formateurs -->
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Responsable de formation *</label>
+        <select id="f-responsable" style="width:100%;padding:10px;border:1.5px solid var(--bordure);border-radius:8px;font-family:'Barlow',sans-serif;font-size:14px;outline:none">
+          <option value="">— Choisir —</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Autres formateurs <span style="color:#aaa;font-weight:400">(optionnel)</span></label>
+        <div id="f-formateurs-checks" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:var(--gris-clair);border-radius:8px;min-height:42px"></div>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -1348,24 +1376,40 @@ function showPage(name) {
 async function loadDashboard() {
   if (!db) return;
 
-  // Stats
-  const [{ count: nbPers }, { count: nbForm }, { data: sessions }] = await Promise.all([
+  const thisYear = new Date().getFullYear();
+  const endOfYear = `${thisYear}-12-31`;
+  const today = new Date().toISOString().split('T')[0];
+
+  const [
+    { count: nbPersonnel },
+    { count: nbFormations },
+    { count: nbEnCours },
+    { count: nbAnnee },
+    { data: resume }
+  ] = await Promise.all([
     db.from('personnel').select('*', {count:'exact',head:true}),
-    db.from('personnel').select('*', {count:'exact',head:true}),
-    db.from('formations').select('id, statut, type_formation, format').neq('statut','Annulée')
+    db.from('formations').select('*', {count:'exact',head:true}),
+    db.from('formations').select('*', {count:'exact',head:true})
+      .in('statut', ['Ouverte','A ouvrir','Admin - PreForm - OK','A la signature']),
+    db.from('formations').select('*', {count:'exact',head:true})
+      .gte('date_formation', `${thisYear}-01-01`).neq('statut','Annulée'),
+    db.from('personnel_formations_resume').select('psc_validite,sn1_validite,sn1_possible_fc,nom,prenom,nigend,unite')
   ]);
 
-  const { count: nbPersonnel } = await db.from('personnel').select('*', {count:'exact',head:true});
-  const { count: nbFormations } = await db.from('formations').select('*', {count:'exact',head:true});
-  const { count: nbEnCours } = await db.from('formations')
-    .select('*', {count:'exact',head:true})
-    .in('statut', ['Ouverte','A ouvrir','Admin - PreForm - OK','A la signature']);
-
-  const thisYear = new Date().getFullYear();
-  const { count: nbAnnee } = await db.from('formations')
-    .select('*', {count:'exact',head:true})
-    .gte('date_formation', `${thisYear}-01-01`)
-    .neq('statut','Annulée');
+  // ── Calcul alertes "Cette année" ──
+  const pscExpireAnnee = (resume||[]).filter(p =>
+    p.psc_validite && p.psc_validite >= today && p.psc_validite <= endOfYear
+  );
+  const sn1ExpireAnnee = (resume||[]).filter(p =>
+    p.sn1_validite && p.sn1_validite >= today && p.sn1_validite <= endOfYear
+  );
+  const sn1Urgent = (resume||[]).filter(p =>
+    p.sn1_validite && p.sn1_validite < today &&
+    p.sn1_possible_fc && p.sn1_possible_fc >= today
+  );
+  const sn1Perdu = (resume||[]).filter(p =>
+    p.sn1_possible_fc && p.sn1_possible_fc < today
+  );
 
   document.getElementById('dash-cards').innerHTML = `
     <div class="card card-stat">
@@ -1388,10 +1432,56 @@ async function loadDashboard() {
     </div>
   `;
 
+  // ── Section "Cette année" ──
+  const dashAnnee = document.getElementById('dash-cette-annee');
+  dashAnnee.style.display = 'block';
+
+  document.getElementById('dash-alertes').innerHTML = `
+    <div class="card card-stat" style="border-top:3px solid var(--bleu)">
+      <div class="value" style="color:var(--bleu)">${pscExpireAnnee.length}</div>
+      <div class="label">PSC expirent en ${thisYear}</div>
+      <div class="sub">À renouveler avant le 31/12</div>
+    </div>
+    <div class="card card-stat" style="border-top:3px solid var(--or)">
+      <div class="value" style="color:var(--or)">${sn1ExpireAnnee.length}</div>
+      <div class="label">SN1 expirent en ${thisYear}</div>
+      <div class="sub">À renouveler avant le 31/12</div>
+    </div>
+    <div class="card card-stat" style="border-top:3px solid var(--rouge)">
+      <div class="value" style="color:var(--rouge)">${sn1Urgent.length}</div>
+      <div class="label">SN1 URGENTS</div>
+      <div class="sub">Expirés mais FC encore possible</div>
+    </div>
+    <div class="card card-stat" style="border-top:3px solid #999">
+      <div class="value" style="color:#999">${sn1Perdu.length}</div>
+      <div class="label">SN1 perdus</div>
+      <div class="sub">+3 ans dépassés — plus de FC possible</div>
+    </div>
+  `;
+
+  function miniList(agents, color) {
+    if (!agents.length) return '<p style="color:#aaa;font-size:13px;padding:8px">Aucun</p>';
+    return agents.slice(0,8).map(p => `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bordure);font-size:13px">
+        <span><strong>${p.nom}</strong> ${p.prenom} <span style="color:#999;font-size:11px">${p.unite||''}</span></span>
+      </div>`).join('') + (agents.length > 8 ? `<p style="color:#aaa;font-size:12px;padding-top:6px">... et ${agents.length-8} autres</p>` : '');
+  }
+
+  document.getElementById('dash-alertes-detail').innerHTML = `
+    <div class="card" style="padding:16px">
+      <div style="font-weight:700;font-size:13px;color:var(--rouge);margin-bottom:10px">⚠️ SN1 URGENTS (${sn1Urgent.length})</div>
+      ${miniList(sn1Urgent)}
+    </div>
+    <div class="card" style="padding:16px">
+      <div style="font-weight:700;font-size:13px;color:#999;margin-bottom:10px">❌ SN1 perdus (${sn1Perdu.length})</div>
+      ${miniList(sn1Perdu)}
+    </div>
+  `;
+
   // Recent formations
   const { data: recent } = await db
     .from('formations')
-    .select('*, formateurs(nom, prenom)')
+    .select('*, formation_responsable:formateurs!formations_responsable_id_fkey(nom, prenom)')
     .order('date_formation', {ascending: false})
     .limit(8);
 
@@ -1400,18 +1490,20 @@ async function loadDashboard() {
     tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">📋</div><p>Aucune formation</p></div></td></tr>';
     return;
   }
-  tbody.innerHTML = recent.map(f => `
+  tbody.innerHTML = recent.map(f => {
+    const resp = f.formation_responsable;
+    return `
     <tr onclick="openFormationDetail('${f.id}')">
       <td>${fmtDate(f.date_formation)}</td>
       <td><span class="badge-type type-${f.type_formation.toLowerCase()}-${f.format.toLowerCase()}">${f.type_formation} ${f.format}</span></td>
       <td>${f.format}</td>
       <td>${f.moment || '—'}</td>
-      <td>${f.formateurs ? f.formateurs.prenom + ' ' + f.formateurs.nom : '—'}</td>
+      <td>${resp ? resp.prenom + ' ' + resp.nom : '—'}</td>
       <td>${f.numero_cri || '—'}</td>
       <td><span class="badge-statut ${statutClass(f.statut)}">${f.statut}</span></td>
       <td><button class="btn btn-secondary btn-sm">Voir</button></td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 // ─── PERSONNEL ────────────────────────────────────────────
@@ -1433,10 +1525,22 @@ async function loadPersonnel() {
   renderPersonnel(allPersonnel);
 }
 
+let _sortCol = 'nom', _sortAsc = true;
+
+function sortPersonnel(col) {
+  if (_sortCol === col) { _sortAsc = !_sortAsc; }
+  else { _sortCol = col; _sortAsc = true; }
+  // Reset all sort indicators
+  document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '');
+  const el = document.getElementById('sort-' + col);
+  if (el) el.textContent = _sortAsc ? ' ▲' : ' ▼';
+  filterPersonnel();
+}
+
 function filterPersonnel() {
   const q = document.getElementById('search-personnel').value.toLowerCase();
   const unite = document.getElementById('filter-unite').value;
-  let res = allPersonnel;
+  let res = [...allPersonnel];
   if (q) res = res.filter(p =>
     (p.nigend||'').toLowerCase().includes(q) ||
     (p.nom||'').toLowerCase().includes(q) ||
@@ -1444,6 +1548,12 @@ function filterPersonnel() {
     (p.unite||'').toLowerCase().includes(q)
   );
   if (unite) res = res.filter(p => p.unite === unite);
+  // Sort
+  res.sort((a, b) => {
+    const va = (a[_sortCol] ?? '').toString().toLowerCase();
+    const vb = (b[_sortCol] ?? '').toString().toLowerCase();
+    return _sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
   renderPersonnel(res);
 }
 
@@ -1621,7 +1731,7 @@ function renderFormations(list) {
   }).join('');
 }
 
-function openFormationModal(id = null) {
+async function openFormationModal(id = null) {
   editingFormationId = id;
   document.getElementById('modal-formation-title').textContent = id ? 'Modifier la formation' : 'Nouvelle formation';
   document.getElementById('f-date').value = '';
@@ -1633,6 +1743,21 @@ function openFormationModal(id = null) {
   document.getElementById('f-type').value = 'PSC';
   document.getElementById('f-format').value = 'FC';
   document.getElementById('f-moment').value = 'Après-midi';
+
+  // Charger la liste des formateurs actifs
+  if (allFormateurs.length === 0) {
+    const { data } = await db.from('formateurs').select('*').eq('actif', true).order('nom');
+    allFormateurs = data || [];
+  }
+  const selResp = document.getElementById('f-responsable');
+  selResp.innerHTML = '<option value="">— Choisir —</option>' +
+    allFormateurs.map(f => `<option value="${f.id}">${f.nom} ${f.prenom}</option>`).join('');
+
+  const checksDiv = document.getElementById('f-formateurs-checks');
+  checksDiv.innerHTML = allFormateurs.map(f => `
+    <label style="display:flex;align-items:center;gap:5px;font-size:13px;padding:4px 8px;background:white;border-radius:6px;border:1px solid var(--bordure);cursor:pointer">
+      <input type="checkbox" class="f-formateur-check" value="${f.id}"> ${f.nom} ${f.prenom}
+    </label>`).join('');
 
   if (id) {
     const f = allFormations.find(x => x.id === id);
@@ -1646,12 +1771,23 @@ function openFormationModal(id = null) {
       document.getElementById('f-lieu').value = f.lieu || '';
       document.getElementById('f-fichier').value = f.nom_fichier || '';
       document.getElementById('f-notes').value = f.notes || '';
+      if (f.responsable_id) selResp.value = f.responsable_id;
+      // Cocher les formateurs additionnels
+      if (f._formateurs_ids) {
+        f._formateurs_ids.forEach(fid => {
+          const cb = checksDiv.querySelector(`input[value="${fid}"]`);
+          if (cb) cb.checked = true;
+        });
+      }
     }
   }
   openModal('modal-formation');
 }
 
 async function saveFormation() {
+  const responsableId = document.getElementById('f-responsable').value || null;
+  const formateursIds = [...document.querySelectorAll('.f-formateur-check:checked')].map(cb => cb.value);
+
   const payload = {
     date_formation: document.getElementById('f-date').value,
     type_formation: document.getElementById('f-type').value,
@@ -1662,15 +1798,16 @@ async function saveFormation() {
     lieu: document.getElementById('f-lieu').value.trim(),
     nom_fichier: document.getElementById('f-fichier').value.trim(),
     notes: document.getElementById('f-notes').value.trim(),
-    formateur_id: currentFormateur?.id || null,
+    responsable_id: responsableId,
+    formateurs_ids: formateursIds,
   };
   if (!payload.date_formation) { showToast('La date est obligatoire', 'error'); return; }
 
-  let error;
+  let error, data;
   if (editingFormationId) {
     ({ error } = await db.from('formations').update(payload).eq('id', editingFormationId));
   } else {
-    ({ error } = await db.from('formations').insert(payload));
+    ({ error, data } = await db.from('formations').insert(payload).select().single());
   }
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast(editingFormationId ? 'Formation mise à jour' : 'Formation créée', 'success');
@@ -2198,13 +2335,16 @@ async function loadFormateurs() {
   const list = document.getElementById('formateurs-list');
   list.innerHTML = allFormateurs.map(f => `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bordure)">
-      <div class="user-avatar" style="width:36px;height:36px;font-size:13px">${(f.prenom[0]+f.nom[0]).toUpperCase()}</div>
+      <div class="user-avatar" style="width:36px;height:36px;font-size:13px;background:${f.user_id?'var(--bleu)':'#aaa'}">${(f.prenom[0]+f.nom[0]).toUpperCase()}</div>
       <div style="flex:1">
-        <div style="font-weight:600">${f.prenom} ${f.nom}</div>
-        <div style="font-size:12px;color:#888">${f.email} ${f.is_admin ? '· ⭐ Admin' : ''}</div>
+        <div style="font-weight:600">${f.prenom} ${f.nom} ${f.is_admin ? '<span style="font-size:11px;color:var(--or)">⭐ Admin</span>' : ''}</div>
+        <div style="font-size:12px;color:#888">
+          ${f.email ? f.email : '<em style="color:#bbb">Sans accès au site</em>'}
+          ${f.user_id ? '<span style="margin-left:6px;color:var(--vert);font-size:11px">● Compte actif</span>' : ''}
+        </div>
       </div>
       <span style="font-size:12px;color:${f.actif?'var(--vert)':'var(--rouge)'}">${f.actif?'Actif':'Inactif'}</span>
-      ${!f.is_admin ? `<button class="btn btn-danger btn-sm" onclick="toggleFormateur('${f.id}',${!f.actif})">${f.actif?'Désactiver':'Activer'}</button>` : ''}
+      ${!f.is_admin ? `<button class="btn btn-secondary btn-sm" onclick="toggleFormateur('${f.id}',${!f.actif})">${f.actif?'Désactiver':'Activer'}</button>` : ''}
     </div>
   `).join('') || '<p style="color:#999;font-size:13px">Aucun formateur</p>';
 }
@@ -2221,19 +2361,26 @@ async function creerFormateur() {
   const prenom = document.getElementById('new-formateur-prenom').value.trim();
   const email = document.getElementById('new-formateur-email').value.trim();
   const pwd = document.getElementById('new-formateur-pwd').value.trim();
-  if (!nom || !prenom || !email || !pwd) { showToast('Tous les champs sont requis', 'error'); return; }
+  if (!nom || !prenom) { showToast('Nom et Prénom obligatoires', 'error'); return; }
 
-  // Create auth user via admin API (requires service role key - note to user)
-  // Alternatively, use signUp and confirm manually
-  const { data, error } = await db.auth.signUp({ email, password: pwd });
-  if (error) { showToast('Erreur Auth : ' + error.message, 'error'); return; }
+  let userId = null;
 
-  const userId = data.user?.id;
-  if (!userId) { showToast('Utilisateur créé — confirmation email requise', 'success'); return; }
+  // Créer un compte Auth seulement si email + mot de passe fournis
+  if (email && pwd) {
+    const { data, error } = await db.auth.signUp({ email, password: pwd });
+    if (error) { showToast('Erreur Auth : ' + error.message, 'error'); return; }
+    userId = data.user?.id || null;
+  }
 
-  const { error: e2 } = await db.from('formateurs').insert({ user_id: userId, nom, prenom, email, is_admin: false });
-  if (e2) { showToast('Erreur base : ' + e2.message, 'error'); return; }
-  showToast('Formateur créé !', 'success');
+  const { error: e2 } = await db.from('formateurs').insert({
+    user_id: userId,
+    nom, prenom,
+    email: email || null,
+    is_admin: false,
+    actif: true
+  });
+  if (e2) { showToast('Erreur : ' + e2.message, 'error'); return; }
+  showToast(email ? 'Formateur créé avec accès au site !' : 'Formateur ajouté (sans accès au site)', 'success');
   ['new-formateur-nom','new-formateur-prenom','new-formateur-email','new-formateur-pwd'].forEach(id => document.getElementById(id).value = '');
   loadFormateurs();
 }
