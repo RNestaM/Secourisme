@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V32</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V33</span></div>
     </div>
   </div>
 
@@ -3265,14 +3265,6 @@ async function genererPV() {
     }
     let xml = await zip.file('content.xml').async('string');
 
-    // ── DEBUG : log le contexte XML autour des placeholders (à retirer après diagnostic) ──
-    const debugIdx = xml.indexOf('XXXX');
-    if (debugIdx >= 0) console.log('[DEBUG] XML autour de XXXX :', JSON.stringify(xml.slice(Math.max(0,debugIdx-80), debugIdx+80)));
-    const debugDate = xml.indexOf('XX/XX/');
-    if (debugDate >= 0) console.log('[DEBUG] XML autour de XX/XX/ :', JSON.stringify(xml.slice(Math.max(0,debugDate-80), debugDate+80)));
-    const debugLieu = xml.indexOf('XXXXXX');
-    if (debugLieu >= 0) console.log('[DEBUG] XML autour de XXXXXX :', JSON.stringify(xml.slice(Math.max(0,debugLieu-80), debugLieu+80)));
-
     // ── Données à injecter ──
     const date = formation.date_formation;
     const dateAff = fmtDatePV(date);
@@ -3292,44 +3284,46 @@ async function genererPV() {
     const newDate = `${dd}/${dm}/20${dy.slice(2)}`;
 
     // ── 1. N° PV ──
-    // Essai exact SN1/FC (styles T1/T2/T3)
-    const pvExact_SN1 = '<text:span text:style-name="T1">XXXX</text:span> du <text:span text:style-name="T1">XX/XX/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">26</text:span>';
-    const pvRepl_SN1  = `<text:span text:style-name="T1">${newCri}</text:span> du <text:span text:style-name="T1">${dd}/${dm}/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">${dy.slice(2)}</text:span>`;
-    if (xml.includes(pvExact_SN1)) {
-      xml = xml.replace(pvExact_SN1, pvRepl_SN1);
-    } else {
-      // Fallback : on cherche le placeholder textuel brut entre balises quelconques
-      xml = xml.replace(/(<text:span\b[^>]*>)XXXX(<\/text:span>)( du )(<text:span\b[^>]*>)XX\/XX\/20\d\d(<\/text:span>)/,
-        (_, a, b, sep, c, _date, e) => `${a}${newCri}${b}${sep}${c}${dd}/${dm}/${dy}${e}`);
-    }
+    // SN1 : XXXX et XX/XX/ dans des spans séparés (T1/T2/T3)
+    xml = xml.replace(
+      '<text:span text:style-name="T1">XXXX</text:span> du <text:span text:style-name="T1">XX/XX/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">26</text:span>',
+      `<text:span text:style-name="T1">${newCri}</text:span> du <text:span text:style-name="T1">${dd}/${dm}/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">${dy.slice(2)}</text:span>`
+    );
+    // PSC : N° XXXX du XX/XX/ en texte brut dans P5, suivi de spans pour 20/26
+    xml = xml.replace(
+      `N° XXXX du XX/XX/<text:span text:style-name="T1">20</text:span><text:span text:style-name="T2">${dy.slice(2)}</text:span>`,
+      `N° ${newCri} du ${dd}/${dm}/<text:span text:style-name="T1">20</text:span><text:span text:style-name="T2">${dy.slice(2)}</text:span>`
+    );
+    // PSC fallback : au cas où l'année dans T2 est encore "26" (template non modifié)
+    xml = xml.replace(
+      'N° XXXX du XX/XX/<text:span text:style-name="T1">20</text:span><text:span text:style-name="T2">26</text:span>',
+      `N° ${newCri} du ${dd}/${dm}/<text:span text:style-name="T1">20</text:span><text:span text:style-name="T2">${dy.slice(2)}</text:span>`
+    );
 
     // ── 2. Date formation ──
-    // Essai exact SN1 (styles T8)
-    const dateExact_SN1 = '<text:span text:style-name="T8">XX</text:span>/<text:span text:style-name="T8">XX</text:span>/202<text:span text:style-name="T8">6</text:span>';
-    const dateRepl_SN1  = `<text:span text:style-name="T8">${dd}</text:span>/<text:span text:style-name="T8">${dm}</text:span>/20<text:span text:style-name="T8">${dy.slice(2)}</text:span>`;
-    if (xml.includes(dateExact_SN1)) {
-      xml = xml.replace(dateExact_SN1, dateRepl_SN1);
-    } else {
-      // Fallback : placeholder textuel brut dans n'importe quel span
-      xml = xml.replace(/(<text:span\b[^>]*>)XX(<\/text:span>\/)<text:span\b[^>]*>XX<\/text:span>\/20\d\d/,
-        (match) => match.replace(/XX/g, (m, offset) => offset === match.indexOf('XX') ? dd : dm).replace(/20\d\d/, `20${dy.slice(2)}`));
-      // Fallback ultime : texte brut XX/XX/20xx dans un nœud texte
-      xml = xml.replace(/>XX\/XX\/20\d\d</g, `>${dd}/${dm}/${dy}<`);
-    }
+    // SN1 : spans séparés (T8)
+    xml = xml.replace(
+      '<text:span text:style-name="T8">XX</text:span>/<text:span text:style-name="T8">XX</text:span>/202<text:span text:style-name="T8">6</text:span>',
+      `<text:span text:style-name="T8">${dd}</text:span>/<text:span text:style-name="T8">${dm}</text:span>/20<text:span text:style-name="T8">${dy.slice(2)}</text:span>`
+    );
+    // PSC : date dans le même paragraphe que le N° PV — déjà traitée ci-dessus via le replace du N° PV
+    // PSC : cellule date séparée si elle existe (style T10 ou autre)
+    xml = xml.replace(
+      '<text:span text:style-name="T10">XX</text:span>/<text:span text:style-name="T10">XX</text:span>/202<text:span text:style-name="T10">6</text:span>',
+      `<text:span text:style-name="T10">${dd}</text:span>/<text:span text:style-name="T10">${dm}</text:span>/20<text:span text:style-name="T10">${dy.slice(2)}</text:span>`
+    );
 
     // ── 3. Lieu ──
-    // Essai exact SN1 (styles T8/T9)
-    const lieuExact_SN1 = '<text:span text:style-name="T8">XXXXXX</text:span><text:span text:style-name="T9"> (</text:span><text:span text:style-name="T8">56</text:span><text:span text:style-name="T9">)</text:span>';
-    const lieuRepl_SN1  = `<text:span text:style-name="T8">${escXml(lieuVille)}</text:span><text:span text:style-name="T9"> (</text:span><text:span text:style-name="T8">${lieuDept}</text:span><text:span text:style-name="T9">)</text:span>`;
-    if (xml.includes(lieuExact_SN1)) {
-      xml = xml.replace(lieuExact_SN1, lieuRepl_SN1);
-    } else {
-      // Fallback : XXXXXX dans un span, suivi de (56) dans les spans suivants
-      xml = xml.replace(/(<text:span\b[^>]*>)XXXXXX(<\/text:span>)([^<]*\(\d+\))/,
-        (_, a, b, rest) => `${a}${escXml(lieuVille)}${b}${rest.replace(/\d+/, lieuDept)}`);
-      // Fallback ultime : texte brut
-      xml = xml.replace(/XXXXXX \(\d+\)/g, `${escXml(lieuVille)} (${lieuDept})`);
-    }
+    // SN1 : spans T8/T9
+    xml = xml.replace(
+      '<text:span text:style-name="T8">XXXXXX</text:span><text:span text:style-name="T9"> (</text:span><text:span text:style-name="T8">56</text:span><text:span text:style-name="T9">)</text:span>',
+      `<text:span text:style-name="T8">${escXml(lieuVille)}</text:span><text:span text:style-name="T9"> (</text:span><text:span text:style-name="T8">${lieuDept}</text:span><text:span text:style-name="T9">)</text:span>`
+    );
+    // PSC : spans T10/T11
+    xml = xml.replace(
+      '<text:span text:style-name="T10">XXXXXX</text:span><text:span text:style-name="T11"> (</text:span><text:span text:style-name="T10">56</text:span><text:span text:style-name="T11">)</text:span>',
+      `<text:span text:style-name="T10">${escXml(lieuVille)}</text:span><text:span text:style-name="T11"> (</text:span><text:span text:style-name="T10">${lieuDept}</text:span><text:span text:style-name="T11">)</text:span>`
+    );
 
     // ── 3. Nb présents / reçus ──
     // Les deux "10" dans Tableau12
