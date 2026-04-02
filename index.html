@@ -679,7 +679,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V12</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V13</span></div>
     </div>
   </div>
 
@@ -802,26 +802,35 @@ tbody td {
     <div class="page" id="page-formation-detail">
       <div class="page-header">
         <button class="btn btn-secondary" onclick="showPage('formations')">← Retour</button>
-        <button class="btn btn-primary" onclick="openAddParticipantModal()">+ Ajouter participant</button>
+        <button class="btn btn-primary" onclick="openAddParticipantModal()">+ Ajouter participant(s)</button>
       </div>
       <div class="formation-header-card" id="formation-detail-header"></div>
       <div class="table-wrapper">
         <div class="table-toolbar">
-          <strong style="font-size:15px">Participants (<span id="nb-participants">0</span>)</strong>
+          <div style="display:flex;align-items:center;gap:12px">
+            <strong style="font-size:15px">Participants (<span id="nb-participants">0</span>)</strong>
+            <label style="font-size:13px;color:#888;cursor:pointer;display:flex;align-items:center;gap:5px">
+              <input type="checkbox" id="select-all-participants" onchange="toggleSelectAll(this.checked)"> Tout sélectionner
+            </label>
+          </div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-success btn-sm" onclick="validerTous()">✅ Tout valider</button>
-            <button class="btn btn-secondary btn-sm" onclick="invaliderTous()">❌ Tout invalider</button>
+            <button class="btn btn-success btn-sm" onclick="validerSelection()">✅ Valider sélection</button>
+            <button class="btn btn-secondary btn-sm" onclick="invaliderSelection()">❌ Invalider sélection</button>
           </div>
         </div>
+        <div style="overflow-x:auto">
         <table>
           <thead>
             <tr>
-              <th>NIGEND</th><th>Nom</th><th>Prénom</th><th>Unité</th>
+              <th style="width:32px"></th>
+              <th>NIGEND</th><th>Nom</th><th>Prénom</th><th>Sexe</th>
+              <th>DDN</th><th>Lieu naissance</th><th>Unité</th>
               <th>Résultat</th><th>Commentaire</th><th></th>
             </tr>
           </thead>
           <tbody id="tbody-participants"></tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -1073,16 +1082,18 @@ tbody td {
   </div>
 </div>
 
-<!-- Modal : Ajouter participant à une formation -->
+<!-- Modal : Ajouter participant(s) à une formation -->
 <div class="modal-overlay" id="modal-add-participant">
-  <div class="modal" style="max-width:520px">
+  <div class="modal" style="max-width:620px">
     <div class="modal-header">
-      <h3>Ajouter un participant</h3>
+      <h3>Ajouter des participants</h3>
       <button class="modal-close" onclick="closeModal('modal-add-participant')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-group" style="margin-bottom:12px">
-        <label>Rechercher un agent</label>
+
+      <!-- Recherche + autocomplete -->
+      <div class="form-group" style="margin-bottom:8px">
+        <label>Rechercher dans la base</label>
         <div class="search-wrapper">
           <input type="text" id="search-add-participant"
             class="search-input" style="width:100%"
@@ -1091,15 +1102,62 @@ tbody td {
           <div class="search-results-dropdown" id="participant-search-results" style="display:none"></div>
         </div>
       </div>
-      <div id="selected-participant-preview" style="display:none;background:var(--gris-clair);border-radius:8px;padding:12px;margin-top:8px;font-size:14px"></div>
-      <div class="form-group" style="margin-top:14px">
-        <label>Commentaire (optionnel)</label>
-        <textarea id="part-comment" style="width:100%;padding:10px;border:1.5px solid var(--bordure);border-radius:8px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;resize:vertical;min-height:60px" placeholder="Remarque sur ce participant..."></textarea>
+
+      <!-- Liste des sélectionnés -->
+      <div id="selected-participants-list" style="min-height:36px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px"></div>
+
+      <!-- Séparateur -->
+      <div style="border-top:1px solid var(--bordure);margin:12px 0;position:relative">
+        <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:white;padding:0 10px;font-size:12px;color:#999">ou créer à la volée</span>
       </div>
+
+      <!-- Création à la volée -->
+      <div style="background:var(--gris-clair);border-radius:8px;padding:14px">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:10px">Nouvel agent</div>
+        <div class="form-row" style="margin-bottom:8px">
+          <div class="form-group">
+            <label>NIGEND <span style="color:#aaa;font-weight:400">(optionnel)</span></label>
+            <input type="text" id="new-p-nigend" class="search-input" style="width:100%" placeholder="137 616" oninput="autofillFromNigend()">
+          </div>
+          <div class="form-group">
+            <label>Sexe</label>
+            <select id="new-p-sexe" style="width:100%;padding:10px;border:1.5px solid var(--bordure);border-radius:8px;font-family:'Barlow',sans-serif;font-size:14px;outline:none">
+              <option value="M">M</option><option value="F">F</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:8px">
+          <div class="form-group">
+            <label>Nom *</label>
+            <input type="text" id="new-p-nom" class="search-input" style="width:100%" placeholder="NOM" oninput="autofillFromNom()">
+          </div>
+          <div class="form-group">
+            <label>Prénom *</label>
+            <input type="text" id="new-p-prenom" class="search-input" style="width:100%" placeholder="Prénom" oninput="autofillFromPrenom()">
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:8px">
+          <div class="form-group">
+            <label>Date naissance</label>
+            <input type="date" id="new-p-ddn" class="search-input" style="width:100%">
+          </div>
+          <div class="form-group">
+            <label>Lieu naissance</label>
+            <input type="text" id="new-p-lieu" class="search-input" style="width:100%" placeholder="BREST (29)">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Unité</label>
+          <input type="text" id="new-p-unite" class="search-input" style="width:100%" list="unite-list" placeholder="BR GUINGAMP">
+        </div>
+        <div id="new-p-existing-alert" style="display:none;background:#fff3cd;border-radius:6px;padding:8px 12px;font-size:13px;margin-bottom:8px;color:#856404"></div>
+        <button class="btn btn-success btn-sm" onclick="addNewPersonnelToList()">➕ Ajouter à la liste</button>
+      </div>
+
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-add-participant')">Annuler</button>
-      <button class="btn btn-primary" onclick="addParticipant()">➕ Ajouter</button>
+      <button class="btn btn-primary" onclick="addAllParticipants()">➕ Ajouter tous (<span id="nb-to-add">0</span>)</button>
     </div>
   </div>
 </div>
@@ -1453,8 +1511,8 @@ async function savePersonnel() {
     sn1_nb_total: parseInt(document.getElementById('p-sn1-nb').value) || 0,
     sn1_possible_fc: document.getElementById('p-sn1-fc').value || null,
   };
-  if (!payload.nigend || !payload.nom || !payload.prenom) {
-    showToast('NIGEND, Nom et Prénom sont obligatoires', 'error'); return;
+  if (!payload.nom || !payload.prenom) {
+    showToast('Nom et Prénom sont obligatoires', 'error'); return;
   }
 
   let error;
@@ -1652,28 +1710,34 @@ async function openFormationDetail(id) {
 async function loadParticipants(formationId) {
   const { data } = await db
     .from('formation_participants')
-    .select('*, personnel(nigend, nom, prenom, unite)')
+    .select('*, personnel(id, nigend, nom, prenom, sexe, date_naissance, ville_naissance, unite)')
     .eq('formation_id', formationId)
     .order('created_at');
 
   const tbody = document.getElementById('tbody-participants');
   document.getElementById('nb-participants').textContent = data?.length || 0;
+  document.getElementById('select-all-participants').checked = false;
 
   if (!data || data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="icon">👥</div><p>Aucun participant</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="icon">👥</div><p>Aucun participant</p></div></td></tr>';
     return;
   }
   tbody.innerHTML = data.map(fp => {
     const r = fp.resultat || '';
-    const badgeClass = r === 'Validé' ? 'statut-effectuee' : r === 'Non validé' ? 'statut-annulee' : '';
+    const p = fp.personnel || {};
+    const noteShort = fp.notes ? fp.notes.substring(0,25) + (fp.notes.length>25?'…':'') : '';
     return `
-    <tr>
-      <td class="nigend">${fp.personnel?.nigend||'—'}</td>
-      <td><strong>${fp.personnel?.nom||'—'}</strong></td>
-      <td>${fp.personnel?.prenom||'—'}</td>
-      <td>${fp.personnel?.unite||'—'}</td>
+    <tr data-fp-id="${fp.id}" data-personnel-id="${p.id||''}">
+      <td><input type="checkbox" class="part-checkbox" value="${fp.id}" onchange="updateSelectionCount()"></td>
+      <td class="nigend" style="cursor:pointer" onclick="openEditPersonnelInline('${p.id||''}')" title="Modifier">${p.nigend||'—'}</td>
+      <td style="cursor:pointer" onclick="openEditPersonnelInline('${p.id||''}')" title="Modifier"><strong>${p.nom||'—'}</strong></td>
+      <td style="cursor:pointer" onclick="openEditPersonnelInline('${p.id||''}')" title="Modifier">${p.prenom||'—'}</td>
+      <td style="text-align:center">${p.sexe||'—'}</td>
+      <td style="font-size:12px">${fmtDate(p.date_naissance)}</td>
+      <td style="font-size:12px">${p.ville_naissance||'—'}</td>
+      <td>${p.unite||'—'}</td>
       <td>
-        <select class="resultat-select" onchange="setResultat('${fp.id}', this.value, '${fp.personnel?.nom||''}', '${fp.personnel?.prenom||''}')"
+        <select class="resultat-select" onchange="setResultat('${fp.id}', this.value)"
           style="padding:4px 8px;border:1.5px solid var(--bordure);border-radius:6px;font-size:12px;font-family:'Barlow',sans-serif;outline:none;background:white">
           <option value="" ${!r?'selected':''}>— À définir —</option>
           <option value="Validé" ${r==='Validé'?'selected':''}>✅ Validé</option>
@@ -1681,8 +1745,8 @@ async function loadParticipants(formationId) {
         </select>
       </td>
       <td>
-        <button class="btn btn-secondary btn-sm" onclick="openCommentModal('${fp.id}','${(fp.personnel?.nom||'')} ${(fp.personnel?.prenom||'')}','${(fp.notes||'').replace(/'/g,"&#39;")}')">
-          ${fp.notes ? '💬' : '➕'} ${fp.notes ? '<span style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;font-size:11px">' + fp.notes.substring(0,30) + (fp.notes.length>30?'…':'') + '</span>' : 'Note'}
+        <button class="btn btn-secondary btn-sm" onclick="openCommentModal('${fp.id}','${(p.nom||'')} ${(p.prenom||'')}','${(fp.notes||'').replace(/'/g,"&#39;").replace(/"/g,"&quot;")}')" title="${fp.notes||''}">
+          ${fp.notes ? '💬 ' + noteShort : '➕ Note'}
         </button>
       </td>
       <td>
@@ -1692,37 +1756,115 @@ async function loadParticipants(formationId) {
   }).join('');
 }
 
+// ── Sélection / validation en masse ──────────────────────
+function toggleSelectAll(checked) {
+  document.querySelectorAll('.part-checkbox').forEach(cb => cb.checked = checked);
+  updateSelectionCount();
+}
+
+function updateSelectionCount() {
+  const all = document.querySelectorAll('.part-checkbox');
+  const checked = document.querySelectorAll('.part-checkbox:checked');
+  document.getElementById('select-all-participants').checked = all.length > 0 && checked.length === all.length;
+}
+
+function getSelectedFpIds() {
+  return [...document.querySelectorAll('.part-checkbox:checked')].map(cb => cb.value);
+}
+
+async function validerSelection() {
+  const ids = getSelectedFpIds();
+  if (ids.length === 0) { showToast('Sélectionnez des participants', 'error'); return; }
+  const { error } = await db.from('formation_participants')
+    .update({ resultat: 'Validé', present: true })
+    .in('id', ids);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast(`${ids.length} participant(s) validé(s) ✅`, 'success');
+  await loadParticipants(currentFormationId);
+}
+
+async function invaliderSelection() {
+  const ids = getSelectedFpIds();
+  if (ids.length === 0) { showToast('Sélectionnez des participants', 'error'); return; }
+  const { error } = await db.from('formation_participants')
+    .update({ resultat: 'Non validé', present: true })
+    .in('id', ids);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast(`${ids.length} participant(s) invalidé(s) ❌`, 'success');
+  await loadParticipants(currentFormationId);
+}
+
+// Garder les anciennes fonctions pour compatibilité
+async function validerTous() {
+  document.querySelectorAll('.part-checkbox').forEach(cb => cb.checked = true);
+  await validerSelection();
+}
+async function invaliderTous() {
+  document.querySelectorAll('.part-checkbox').forEach(cb => cb.checked = true);
+  await invaliderSelection();
+}
+
+// ── Modal ajouter participants ────────────────────────────
+let _pendingParticipants = []; // [{id, nigend, nom, prenom, unite, isNew, ...}]
+
 function openAddParticipantModal() {
-  selectedParticipantId = null;
+  _pendingParticipants = [];
   document.getElementById('search-add-participant').value = '';
   document.getElementById('participant-search-results').style.display = 'none';
-  document.getElementById('selected-participant-preview').style.display = 'none';
-  document.getElementById('part-comment').value = '';
+  document.getElementById('selected-participants-list').innerHTML = '';
+  document.getElementById('nb-to-add').textContent = '0';
+  // Clear form à la volée
+  ['new-p-nigend','new-p-nom','new-p-prenom','new-p-ddn','new-p-lieu','new-p-unite'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('new-p-existing-alert').style.display = 'none';
   openModal('modal-add-participant');
+}
+
+function renderPendingList() {
+  const div = document.getElementById('selected-participants-list');
+  document.getElementById('nb-to-add').textContent = _pendingParticipants.length;
+  if (_pendingParticipants.length === 0) {
+    div.innerHTML = '<span style="color:#aaa;font-size:13px">Aucun participant sélectionné</span>';
+    return;
+  }
+  div.innerHTML = _pendingParticipants.map((p, i) => `
+    <span style="display:inline-flex;align-items:center;gap:6px;background:${p.isNew?'#e8f5e9':'#e8ecf5'};
+      border:1px solid ${p.isNew?'#a5d6a7':'var(--bordure)'};border-radius:20px;padding:4px 10px;font-size:13px">
+      ${p.isNew ? '🆕' : ''} ${p.nom} ${p.prenom}
+      <button onclick="removePending(${i})" style="background:none;border:none;cursor:pointer;color:#999;font-size:14px;padding:0;line-height:1">×</button>
+    </span>
+  `).join('');
+}
+
+function removePending(i) {
+  _pendingParticipants.splice(i, 1);
+  renderPendingList();
 }
 
 let searchTimeout = null;
 async function searchParticipantToAdd() {
   clearTimeout(searchTimeout);
-  const q = document.getElementById('search-add-participant').value.trim().toLowerCase();
+  const q = document.getElementById('search-add-participant').value.trim();
   const resultsDiv = document.getElementById('participant-search-results');
   if (q.length < 2) { resultsDiv.style.display = 'none'; return; }
 
   searchTimeout = setTimeout(async () => {
     const { data } = await db
       .from('personnel')
-      .select('id, nigend, nom, prenom, unite')
+      .select('id, nigend, nom, prenom, unite, sexe, date_naissance, ville_naissance')
       .or(`nigend.ilike.%${q}%,nom.ilike.%${q}%,prenom.ilike.%${q}%`)
       .limit(10);
 
     if (!data || data.length === 0) {
-      resultsDiv.innerHTML = '<div class="search-result-item" style="color:#999">Aucun résultat</div>';
+      resultsDiv.innerHTML = '<div class="search-result-item" style="color:#999">Aucun résultat dans la base</div>';
       resultsDiv.style.display = 'block';
       return;
     }
     resultsDiv.innerHTML = data.map(p => `
-      <div class="search-result-item" onclick="selectParticipant('${p.id}','${p.nigend}','${p.nom}','${p.prenom}','${p.unite||''}')">
-        <strong>${p.nigend}</strong> — ${p.nom} ${p.prenom}
+      <div class="search-result-item" onclick="selectParticipant('${p.id}','${(p.nigend||'').replace(/'/g,"\'")}','${p.nom.replace(/'/g,"\'")}','${p.prenom.replace(/'/g,"\'")}','${(p.unite||'').replace(/'/g,"\'")}')">
+        <strong>${p.nigend||'Civil'}</strong> — ${p.nom} ${p.prenom}
         <br><small>${p.unite||''}</small>
       </div>
     `).join('');
@@ -1731,34 +1873,164 @@ async function searchParticipantToAdd() {
 }
 
 function selectParticipant(id, nigend, nom, prenom, unite) {
-  selectedParticipantId = id;
-  document.getElementById('search-add-participant').value = `${nigend} — ${nom} ${prenom}`;
+  document.getElementById('search-add-participant').value = '';
   document.getElementById('participant-search-results').style.display = 'none';
-  const prev = document.getElementById('selected-participant-preview');
-  prev.innerHTML = `<strong>${nom} ${prenom}</strong> · ${nigend} · ${unite}`;
-  prev.style.display = 'block';
+  // Éviter doublons
+  if (_pendingParticipants.find(p => p.id === id)) { showToast('Déjà dans la liste', 'error'); return; }
+  _pendingParticipants.push({ id, nigend, nom, prenom, unite, isNew: false });
+  renderPendingList();
 }
 
-async function addParticipant() {
-  if (!selectedParticipantId) { showToast('Sélectionnez un agent', 'error'); return; }
-  const { error } = await db.from('formation_participants').insert({
-    formation_id: currentFormationId,
-    personnel_id: selectedParticipantId,
-    present: true,
-    resultat: null,
-    notes: document.getElementById('part-comment').value.trim() || null,
-  });
-  if (error) {
-    if (error.code === '23505') showToast('Cet agent est déjà dans la formation', 'error');
-    else showToast('Erreur : ' + error.message, 'error');
-    return;
+// Autocomplete à la volée
+let _autofillTimeout = null;
+async function autofillFromNigend() {
+  const nigend = document.getElementById('new-p-nigend').value.replace(/\s/g,'');
+  if (nigend.length < 4) return;
+  clearTimeout(_autofillTimeout);
+  _autofillTimeout = setTimeout(async () => {
+    const { data } = await db.from('personnel').select('*').ilike('nigend', '%' + nigend + '%').limit(1);
+    if (data && data.length > 0) prefillNewPersonnel(data[0]);
+  }, 300);
+}
+
+async function autofillFromNom() {
+  await _autofillSearch();
+}
+async function autofillFromPrenom() {
+  await _autofillSearch();
+}
+
+async function _autofillSearch() {
+  const nom = document.getElementById('new-p-nom').value.trim();
+  const prenom = document.getElementById('new-p-prenom').value.trim();
+  if (nom.length < 2 && prenom.length < 2) return;
+  clearTimeout(_autofillTimeout);
+  _autofillTimeout = setTimeout(async () => {
+    let q = db.from('personnel').select('*');
+    if (nom.length >= 2) q = q.ilike('nom', '%' + nom + '%');
+    if (prenom.length >= 2) q = q.ilike('prenom', '%' + prenom + '%');
+    const { data } = await q.limit(1);
+    if (data && data.length > 0) prefillNewPersonnel(data[0]);
+  }, 400);
+}
+
+function prefillNewPersonnel(p) {
+  document.getElementById('new-p-nigend').value = p.nigend || '';
+  document.getElementById('new-p-nom').value = p.nom || '';
+  document.getElementById('new-p-prenom').value = p.prenom || '';
+  document.getElementById('new-p-sexe').value = p.sexe || 'M';
+  document.getElementById('new-p-ddn').value = p.date_naissance || '';
+  document.getElementById('new-p-lieu').value = p.ville_naissance || '';
+  document.getElementById('new-p-unite').value = p.unite || '';
+  // Stocker l'id existant
+  document.getElementById('new-p-nigend').dataset.existingId = p.id;
+  const alert = document.getElementById('new-p-existing-alert');
+  alert.textContent = `⚠️ Agent trouvé en base : ${p.nom} ${p.prenom} (${p.nigend||'civil'})`;
+  alert.style.display = 'block';
+}
+
+async function addNewPersonnelToList() {
+  const nom = document.getElementById('new-p-nom').value.trim().toUpperCase();
+  const prenom = document.getElementById('new-p-prenom').value.trim();
+  if (!nom || !prenom) { showToast('Nom et Prénom obligatoires', 'error'); return; }
+
+  const nigendEl = document.getElementById('new-p-nigend');
+  const existingId = nigendEl.dataset.existingId;
+
+  // Si agent déjà en base (autocomplete l'a trouvé)
+  if (existingId) {
+    if (_pendingParticipants.find(p => p.id === existingId)) { showToast('Déjà dans la liste', 'error'); return; }
+    _pendingParticipants.push({
+      id: existingId,
+      nigend: nigendEl.value,
+      nom, prenom,
+      unite: document.getElementById('new-p-unite').value,
+      isNew: false
+    });
+    // Mettre à jour les données en base si modifiées
+    await db.from('personnel').update({
+      nom,
+      prenom,
+      sexe: document.getElementById('new-p-sexe').value,
+      date_naissance: document.getElementById('new-p-ddn').value || null,
+      ville_naissance: document.getElementById('new-p-lieu').value.trim(),
+      unite: document.getElementById('new-p-unite').value.trim().toUpperCase(),
+    }).eq('id', existingId);
+  } else {
+    // Créer en base directement
+    const payload = {
+      nigend: nigendEl.value.replace(/\s/g,'') || null,
+      nom, prenom,
+      sexe: document.getElementById('new-p-sexe').value,
+      date_naissance: document.getElementById('new-p-ddn').value || null,
+      ville_naissance: document.getElementById('new-p-lieu').value.trim(),
+      unite: document.getElementById('new-p-unite').value.trim().toUpperCase(),
+    };
+    const { data, error } = await db.from('personnel').insert(payload).select().single();
+    if (error) { showToast('Erreur création : ' + error.message, 'error'); return; }
+    _pendingParticipants.push({ id: data.id, nigend: data.nigend, nom, prenom, unite: data.unite, isNew: true });
   }
-  showToast('Participant ajouté', 'success');
+
+  // Reset form
+  ['new-p-nigend','new-p-nom','new-p-prenom','new-p-ddn','new-p-lieu','new-p-unite'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  delete nigendEl.dataset.existingId;
+  document.getElementById('new-p-existing-alert').style.display = 'none';
+  renderPendingList();
+}
+
+async function addAllParticipants() {
+  if (_pendingParticipants.length === 0) { showToast('Aucun participant à ajouter', 'error'); return; }
+  let added = 0, skipped = 0;
+  for (const p of _pendingParticipants) {
+    const { error } = await db.from('formation_participants').insert({
+      formation_id: currentFormationId,
+      personnel_id: p.id,
+      present: true,
+      resultat: null,
+    });
+    if (error) {
+      if (error.code === '23505') skipped++;
+      else { showToast('Erreur : ' + error.message, 'error'); }
+    } else {
+      added++;
+      await updatePersonnelStats(p.id, currentFormationId);
+    }
+  }
+  const msg = `${added} ajouté(s)${skipped ? ', ' + skipped + ' doublon(s) ignoré(s)' : ''}`;
+  showToast(msg, 'success');
   closeModal('modal-add-participant');
   await loadParticipants(currentFormationId);
-  // Update personnel stats
-  await updatePersonnelStats(selectedParticipantId, currentFormationId);
 }
+
+// ── Modifier un agent depuis la page formation ────────────
+async function openEditPersonnelInline(personnelId) {
+  if (!personnelId) return;
+  // Récupérer les données fraîches
+  const { data: p } = await db.from('personnel').select('*').eq('id', personnelId).single();
+  if (!p) return;
+  // Ouvrir le modal personnel standard prérempli
+  editingPersonnelId = personnelId;
+  document.getElementById('modal-personnel-title').textContent = 'Modifier l\u0027agent';
+  document.getElementById('p-nigend').value = p.nigend || '';
+  document.getElementById('p-nom').value = p.nom || '';
+  document.getElementById('p-prenom').value = p.prenom || '';
+  document.getElementById('p-sexe').value = p.sexe || 'M';
+  document.getElementById('p-ddn').value = p.date_naissance || '';
+  document.getElementById('p-ville').value = p.ville_naissance || '';
+  document.getElementById('p-unite').value = p.unite || '';
+  document.getElementById('p-psc-date').value = p.psc_date_derniere || '';
+  document.getElementById('p-psc-validite').value = p.psc_validite || '';
+  document.getElementById('p-psc-nb').value = p.psc_nb_total || 0;
+  document.getElementById('p-sn1-date').value = p.sn1_date_derniere || '';
+  document.getElementById('p-sn1-validite').value = p.sn1_validite || '';
+  document.getElementById('p-sn1-nb').value = p.sn1_nb_total || 0;
+  document.getElementById('p-sn1-fc').value = p.sn1_possible_fc || '';
+  openModal('modal-personnel');
+}
+
+async function addParticipant() { await addAllParticipants(); } // compat
 
 async function removeParticipant(fpId) {
   if (!confirm('Retirer ce participant ?')) return;
@@ -1768,8 +2040,28 @@ async function removeParticipant(fpId) {
   await loadParticipants(currentFormationId);
 }
 
+// Calcule validité PSC : date + 3 ans au 31/12
+function calcValiditePSC(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return `${d.getFullYear() + 3}-12-31`;
+}
+// Calcule validité SN1 : date + 2 ans au 31/12
+function calcValiditeSN1(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return `${d.getFullYear() + 2}-12-31`;
+}
+// Calcule FC possible SN1 : date anniversaire + 3 ans - 1 jour
+function calcFcSN1(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  d.setFullYear(d.getFullYear() + 3);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+}
+
 async function updatePersonnelStats(personnelId, formationId) {
-  // Get formation info
   const { data: f } = await db.from('formations').select('type_formation, format, date_formation').eq('id', formationId).single();
   if (!f) return;
   const { data: p } = await db.from('personnel').select('*').eq('id', personnelId).single();
@@ -1780,19 +2072,14 @@ async function updatePersonnelStats(personnelId, formationId) {
     update.psc_nb_total = (p.psc_nb_total || 0) + 1;
     if (!p.psc_date_derniere || f.date_formation > p.psc_date_derniere) {
       update.psc_date_derniere = f.date_formation;
-      // Validité PSC = 2 ans
-      const d = new Date(f.date_formation);
-      d.setFullYear(d.getFullYear() + 2);
-      update.psc_validite = d.toISOString().split('T')[0];
+      update.psc_validite = calcValiditePSC(f.date_formation);
     }
   } else if (f.type_formation === 'SN1') {
     update.sn1_nb_total = (p.sn1_nb_total || 0) + 1;
     if (!p.sn1_date_derniere || f.date_formation > p.sn1_date_derniere) {
       update.sn1_date_derniere = f.date_formation;
-      // Validité SN1 = 2 ans
-      const d = new Date(f.date_formation);
-      d.setFullYear(d.getFullYear() + 2);
-      update.sn1_validite = d.toISOString().split('T')[0];
+      update.sn1_validite = calcValiditeSN1(f.date_formation);
+      update.sn1_possible_fc = calcFcSN1(f.date_formation);
     }
   }
   if (Object.keys(update).length > 0) {
@@ -2203,8 +2490,9 @@ async function importCSV() {
   // Calculer les validités
   _importRows = Object.values(byNigend).map(r => ({
     ...r,
-    psc_validite: computeValidite(r.psc_date_derniere, 2),
-    sn1_validite: computeValidite(r.sn1_date_derniere, 2),
+    psc_validite: calcValiditePSC(r.psc_date_derniere),
+    sn1_validite: calcValiditeSN1(r.sn1_date_derniere),
+    sn1_possible_fc: calcFcSN1(r.sn1_date_derniere),
   }));
 
   if (_importRows.length === 0) {
