@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V45</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V46</span></div>
     </div>
   </div>
 
@@ -3236,10 +3236,10 @@ async function genererPV() {
   showToast('Génération en cours...', '');
 
   try {
-    // Télécharger le template depuis Supabase Storage
+    // Télécharger le template depuis Supabase Storage (cache-bust pour forcer la dernière version)
     const { data: templateData, error: templateError } = await db.storage
       .from('pv-templates')
-      .download(templateFile);
+      .download(templateFile + '?t=' + Date.now());
 
     if (templateError || !templateData) {
       // Fallback sur le template embarqué si disponible
