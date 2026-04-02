@@ -679,7 +679,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V19</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V20</span></div>
     </div>
   </div>
 
@@ -1393,7 +1393,7 @@ async function loadDashboard() {
       .in('statut', ['Ouverte','A ouvrir','Admin - PreForm - OK','A la signature']),
     db.from('formations').select('*', {count:'exact',head:true})
       .gte('date_formation', `${thisYear}-01-01`).neq('statut','Annulée'),
-    db.from('personnel_formations_resume').select('psc_validite,sn1_validite,sn1_possible_fc,nom,prenom,nigend,unite')
+    db.rpc('get_personnel_resume')
   ]);
 
   // ── Calcul alertes "Cette année" ──
@@ -1511,7 +1511,7 @@ async function loadPersonnel() {
   if (!db) return;
   document.getElementById('tbody-personnel').innerHTML = '<tr><td colspan="12"><div class="loading"><div class="spinner"></div> Chargement...</div></td></tr>';
 
-  const { data, error } = await db.from('personnel_formations_resume').select('*').order('nom');
+  const { data, error } = await db.rpc('get_personnel_resume');
   if (error) { showToast('Erreur chargement personnel', 'error'); return; }
 
   allPersonnel = data || [];
@@ -2416,7 +2416,7 @@ async function creerFormateur() {
 
 // ─── EXPORTS ──────────────────────────────────────────────
 async function exportPersonnelCSV() {
-  const { data } = await db.from('personnel_formations_resume').select('*').order('nom');
+  const { data } = await db.rpc('get_personnel_resume');
   if (!data) return;
   const headers = ['NIGEND','Nom','Prénom','Sexe','Date naissance','Ville naissance','Unité',
     'PSC date','PSC validité','PSC nb','SN1 date','SN1 validité','SN1 nb','SN1 possible FC'];
@@ -2918,7 +2918,7 @@ async function openHistoriqueModal(personnelId, nomComplet) {
 
   // Charger agent + historique en parallèle
   const [{ data: agent }, { data, error }] = await Promise.all([
-    db.from('personnel_formations_resume').select('*').eq('id', personnelId).single(),
+    db.rpc('get_personnel_resume').then(r => ({ data: (r.data||[]).find(x => x.id === personnelId), error: r.error })),
     db.from('historique_formations')
       .select('*, formations(numero_cri, lieu, responsable:formateurs!formations_responsable_id_fkey(nom, prenom))')
       .eq('personnel_id', personnelId)
