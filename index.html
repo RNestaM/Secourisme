@@ -679,7 +679,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V10</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V12</span></div>
     </div>
   </div>
 
@@ -2085,6 +2085,9 @@ async function removeUnite(unite) {
 }
 
 // ─── IMPORT CSV ───────────────────────────────────────────
+// Stockage temporaire des rows pour l'import (évite les problèmes d'encodage en onclick)
+let _importRows = [];
+
 async function importCSV() {
   const file = document.getElementById('import-csv-file').files[0];
   if (!file) { showToast('Sélectionnez un fichier', 'error'); return; }
@@ -2095,58 +2098,152 @@ async function importCSV() {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) { preview.innerHTML = '<p style="color:red">Fichier vide ou invalide</p>'; return; }
 
-  // Detect separator
-  const sep = lines[0].includes(';') ? ';' : ',';
+  // Détecter le séparateur : tabulation > point-virgule > virgule
+  const firstLine = lines[0];
+  const sep = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
 
-  // Skip header line
-  const rows = lines.slice(1).map(l => {
-    const cols = l.split(sep).map(c => c.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
-    return {
-      nigend: (cols[0]||'').replace(/\s/g,'').replace(/[^0-9]/g,''),
-      nom: (cols[1]||'').toUpperCase().trim(),
-      prenom: (cols[2]||'').trim(),
-      sexe: (cols[3]||'M').toUpperCase().trim(),
-      date_naissance: parseDateFR(cols[4]),
-      ville_naissance: (cols[5]||'').trim(),
-      unite: (cols[6]||'').toUpperCase().trim(),
-      psc_date_derniere: parseDateFR(cols[7]) || null,
-      psc_validite: computeValidite(parseDateFR(cols[7]), 2),
-      psc_nb_total: parseDateFR(cols[7]) ? 1 : 0,
-      sn1_date_derniere: parseDateFR(cols[8]) || null,
-      sn1_validite: computeValidite(parseDateFR(cols[8]), 2),
-      sn1_nb_total: parseDateFR(cols[8]) ? 1 : 0,
-    };
-  }).filter(r => r.nigend && r.nom);
+  // Parser une ligne en tenant compte des guillemets CSV
+  function parseLine(line) {
+    const result = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === sep && !inQ) { result.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    result.push(cur.trim());
+    return result;
+  }
 
-  if (rows.length === 0) {
-    preview.innerHTML = '<p style="color:red">Aucune ligne valide trouvée. Vérifiez le format.</p>';
+  // Détecter les indices de colonnes depuis l'entête
+  const headers = parseLine(lines[0]).map(h => h.trim().toUpperCase()
+    .replace(/[ÉÈÊ]/g,'E').replace(/[ÀÂ]/g,'A').replace(/[ÙÛ]/g,'U').replace(/[ÔÖ]/g,'O'));
+  
+  // Mapping flexible des colonnes
+  function colIdx(...names) {
+    for (const n of names) {
+      const i = headers.findIndex(h => h.includes(n));
+      if (i >= 0) return i;
+    }
+    return -1;
+  }
+
+  const iNigend  = colIdx('NIGEND');
+  const iNom     = colIdx('NOM');
+  const iPrenom  = colIdx('PRENOM');
+  // SEXE : cherche la colonne "SEXE" ou une colonne dont les valeurs sont M/F
+  let iSexe = colIdx('SEXE');
+  if (iSexe < 0) {
+    // Fallback : chercher la colonne entre PRENOM et DATE dont les valeurs sont M ou F
+    // En général c'est la col index 3
+    const testLine = parseLine(lines[1] || '');
+    for (let ci = 2; ci <= 5; ci++) {
+      const v = (testLine[ci]||'').trim().toUpperCase();
+      if (v === 'M' || v === 'F') { iSexe = ci; break; }
+    }
+  }
+  const iDDN     = colIdx('DATE','NAISSANCE');
+  const iLieu    = colIdx('LIEU','VILLE');
+  const iUnite   = colIdx('UNITE','UNIT');
+  const iPsc     = colIdx('PSC');
+  const iSn1     = colIdx('SN1','STG');
+
+  if (iNigend < 0 || iNom < 0) {
+    preview.innerHTML = '<p style="color:red">Colonnes NIGEND et NOM introuvables. V\u00e9rifiez l\u0027ent\u00eate.</p>';
     return;
   }
 
-  // Show preview
+  // Regrouper par NIGEND : garder la date PSC la plus récente et la date SN1 la plus récente
+  const byNigend = {};
+
+  lines.slice(1).forEach(line => {
+    const cols = parseLine(line);
+    if (!cols[iNigend]) return;
+    const nigend = cols[iNigend].replace(/\s/g,'').replace(/[^0-9]/g,'');
+    if (!nigend || nigend.length < 4) return;
+
+    const nom    = (cols[iNom]||'').toUpperCase().trim();
+    if (!nom) return;
+
+    const pscDate = iPsc >= 0 ? parseDateFR(cols[iPsc]) : null;
+    const sn1Date = iSn1 >= 0 ? parseDateFR(cols[iSn1]) : null;
+
+    if (!byNigend[nigend]) {
+      byNigend[nigend] = {
+        nigend,
+        nom,
+        prenom: iPrenom >= 0 ? (cols[iPrenom]||'').trim() : '',
+        sexe: iSexe >= 0 ? ((cols[iSexe]||'M').toUpperCase().trim()||'M') : 'M',
+        date_naissance: iDDN >= 0 ? parseDateFR(cols[iDDN]) : null,
+        ville_naissance: iLieu >= 0 ? (cols[iLieu]||'').trim() : '',
+        unite: iUnite >= 0 ? (cols[iUnite]||'').toUpperCase().trim() : '',
+        psc_date_derniere: pscDate,
+        psc_nb_total: pscDate ? 1 : 0,
+        sn1_date_derniere: sn1Date,
+        sn1_nb_total: sn1Date ? 1 : 0,
+      };
+    } else {
+      // Mettre à jour avec la date la plus récente
+      if (pscDate) {
+        byNigend[nigend].psc_nb_total += 1;
+        if (!byNigend[nigend].psc_date_derniere || pscDate > byNigend[nigend].psc_date_derniere) {
+          byNigend[nigend].psc_date_derniere = pscDate;
+        }
+      }
+      if (sn1Date) {
+        byNigend[nigend].sn1_nb_total += 1;
+        if (!byNigend[nigend].sn1_date_derniere || sn1Date > byNigend[nigend].sn1_date_derniere) {
+          byNigend[nigend].sn1_date_derniere = sn1Date;
+        }
+      }
+    }
+  });
+
+  // Calculer les validités
+  _importRows = Object.values(byNigend).map(r => ({
+    ...r,
+    psc_validite: computeValidite(r.psc_date_derniere, 2),
+    sn1_validite: computeValidite(r.sn1_date_derniere, 2),
+  }));
+
+  if (_importRows.length === 0) {
+    preview.innerHTML = '<p style="color:red">Aucune ligne valide trouvée.</p>';
+    return;
+  }
+
   preview.innerHTML = `
-    <div style="margin-bottom:12px;font-size:14px"><strong>${rows.length}</strong> agents détectés</div>
-    <div style="max-height:200px;overflow-y:auto;border:1px solid var(--bordure);border-radius:8px">
+    <div style="margin-bottom:12px;font-size:14px">
+      <strong>${_importRows.length}</strong> agents uniques détectés
+      <span style="color:#888;font-size:12px;margin-left:8px">Séparateur : ${sep === '\t' ? 'tabulation' : sep}</span>
+    </div>
+    <div style="max-height:240px;overflow-y:auto;border:1px solid var(--bordure);border-radius:8px">
       <table style="width:100%;font-size:12px;border-collapse:collapse">
         <thead><tr style="background:var(--gris-clair)">
           <th style="padding:6px 10px;text-align:left">NIGEND</th>
           <th style="padding:6px 10px;text-align:left">Nom</th>
           <th style="padding:6px 10px;text-align:left">Prénom</th>
+          <th style="padding:6px 10px;text-align:center">Sexe</th>
           <th style="padding:6px 10px;text-align:left">Unité</th>
+          <th style="padding:6px 10px;text-align:left">PSC</th>
+          <th style="padding:6px 10px;text-align:left">SN1</th>
         </tr></thead>
         <tbody>
-          ${rows.slice(0,10).map(r => `<tr style="border-top:1px solid var(--bordure)">
+          ${_importRows.slice(0,15).map(r => `<tr style="border-top:1px solid var(--bordure)">
             <td style="padding:5px 10px">${r.nigend}</td>
             <td style="padding:5px 10px">${r.nom}</td>
             <td style="padding:5px 10px">${r.prenom}</td>
+            <td style="padding:5px 10px;text-align:center">${r.sexe||'—'}</td>
             <td style="padding:5px 10px">${r.unite}</td>
+            <td style="padding:5px 10px;color:${r.psc_date_derniere?'var(--vert)':'#ccc'}">${r.psc_date_derniere ? fmtDate(r.psc_date_derniere) : '—'}</td>
+            <td style="padding:5px 10px;color:${r.sn1_date_derniere?'var(--bleu)':'#ccc'}">${r.sn1_date_derniere ? fmtDate(r.sn1_date_derniere) : '—'}</td>
           </tr>`).join('')}
-          ${rows.length > 10 ? `<tr><td colspan="4" style="padding:6px 10px;color:#888;text-align:center">... et ${rows.length-10} autres</td></tr>` : ''}
+          ${_importRows.length > 15 ? `<tr><td colspan="6" style="padding:6px 10px;color:#888;text-align:center">... et ${_importRows.length-15} autres</td></tr>` : ''}
         </tbody>
       </table>
     </div>
-    <button class="btn btn-primary" style="margin-top:12px" onclick="confirmImport(${JSON.stringify(rows).replace(/</g,'&lt;').replace(/>/g,'&gt;')})">
-      ✅ Confirmer l'import (${rows.length} agents)
+    <button class="btn btn-primary" style="margin-top:12px" onclick="confirmImport()">
+      ✅ Confirmer l'import (${_importRows.length} agents)
     </button>
   `;
 }
@@ -2154,9 +2251,10 @@ async function importCSV() {
 function parseDateFR(str) {
   if (!str) return null;
   str = str.trim();
+  if (!str) return null;
   // DD/MM/YYYY
-  const m1 = str.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
-  if (m1) return `${m1[3]}-${m1[2]}-${m1[1]}`;
+  const m1 = str.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
   // YYYY-MM-DD
   const m2 = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (m2) return str;
@@ -2171,13 +2269,15 @@ function computeValidite(dateStr, years) {
   return d.toISOString().split('T')[0];
 }
 
-async function confirmImport(rows) {
+async function confirmImport() {
+  const rows = _importRows;
+  if (!rows || rows.length === 0) { showToast('Aucune donnée à importer', 'error'); return; }
   const preview = document.getElementById('import-preview');
   preview.innerHTML = '<div class="loading"><div class="spinner"></div> Import en cours...</div>';
 
-  let inserted = 0, skipped = 0, errors = 0;
+  let inserted = 0, updated = 0, errors = 0;
+  const errorDetails = [];
 
-  // Batch upsert by chunks of 50
   for (let i = 0; i < rows.length; i += 50) {
     const chunk = rows.slice(i, i + 50);
     const { data, error } = await db.from('personnel')
@@ -2185,23 +2285,23 @@ async function confirmImport(rows) {
       .select();
     if (error) {
       console.error('Import error:', error);
+      errorDetails.push(error.message);
       errors += chunk.length;
     } else {
       inserted += (data || []).length;
-      skipped += chunk.length - (data || []).length;
     }
   }
 
   preview.innerHTML = `
-    <div style="background:#d4edda;border-radius:8px;padding:14px;font-size:14px">
-      ✅ Import terminé : <strong>${inserted}</strong> ajoutés,
-      <strong>${skipped}</strong> ignorés (doublons),
-      ${errors > 0 ? `<strong style="color:red">${errors} erreurs</strong>` : '<strong>0 erreur</strong>'}
+    <div style="background:${errors>0?'#fff3cd':'#d4edda'};border-radius:8px;padding:14px;font-size:14px">
+      ${errors > 0 ? '⚠️' : '✅'} Import terminé : <strong>${inserted}</strong> agents importés/mis à jour
+      ${errors > 0 ? `<br><span style="color:red;font-size:12px">Erreurs (${errors}) : ${errorDetails[0]}</span>` : ''}
     </div>
   `;
-  showToast(`Import : ${inserted} ajoutés`, 'success');
+  showToast(`Import : ${inserted} agents`, inserted > 0 ? 'success' : 'error');
+  _importRows = [];
   document.getElementById('import-csv-file').value = '';
-  if (allPersonnel.length > 0) loadPersonnel();
+  if (document.getElementById('page-personnel').classList.contains('active')) loadPersonnel();
 }
 // ─── HELPERS ──────────────────────────────────────────────
 function fmtDate(d) {
