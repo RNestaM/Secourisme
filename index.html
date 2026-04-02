@@ -244,10 +244,15 @@ nav { flex: 1; padding: 16px 0; overflow-y: auto; }
 
 /* ── CARDS ──────────────────────────────────────── */
 .cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 16px;
   margin-bottom: 28px;
+}
+.card-stat {
+  min-width: 160px;
+  flex: 0 1 200px;
 }
 .card {
   background: white;
@@ -679,7 +684,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V20</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V25</span></div>
     </div>
   </div>
 
@@ -695,18 +700,13 @@ tbody td {
         </div>
         <button class="btn btn-primary" onclick="openFormationModal()">+ Nouvelle formation</button>
       </div>
-      <div class="cards-grid" id="dash-cards">
+      <!-- Cards principales + alertes sur la même ligne -->
+      <div id="dash-cards" class="cards-grid" style="margin-bottom:16px">
         <div class="card card-stat"><div class="spinner" style="margin:10px auto"></div></div>
       </div>
 
-      <!-- Section Cette Année -->
-      <div id="dash-cette-annee" style="margin-bottom:24px;display:none">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--bleu);margin-bottom:12px">
-          📅 Cette année — Alertes validités
-        </div>
-        <div class="cards-grid" id="dash-alertes"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px" id="dash-alertes-detail"></div>
-      </div>
+      <!-- Listes SN1 urgents/perdus -->
+      <div id="dash-alertes-detail" style="display:none;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px"></div>
 
       <div class="table-wrapper">
         <div class="table-toolbar">
@@ -1432,11 +1432,26 @@ async function loadDashboard() {
     </div>
   `;
 
-  // ── Section "Cette année" ──
-  const dashAnnee = document.getElementById('dash-cette-annee');
-  dashAnnee.style.display = 'block';
-
-  document.getElementById('dash-alertes').innerHTML = `
+  // ── Cards : principales + alertes sur la même ligne ──
+  document.getElementById('dash-cards').innerHTML = `
+    <div class="card card-stat">
+      <div class="value">${nbPersonnel ?? 0}</div>
+      <div class="label">Agents en base</div>
+    </div>
+    <div class="card card-stat">
+      <div class="value">${nbFormations ?? 0}</div>
+      <div class="label">Formations totales</div>
+    </div>
+    <div class="card card-stat">
+      <div class="value">${nbEnCours ?? 0}</div>
+      <div class="label">En cours</div>
+      <div class="sub">À traiter</div>
+    </div>
+    <div class="card card-stat">
+      <div class="value">${nbAnnee ?? 0}</div>
+      <div class="label">Cette année</div>
+      <div class="sub">${thisYear}</div>
+    </div>
     <div class="card card-stat" style="border-top:3px solid var(--bleu)">
       <div class="value" style="color:var(--bleu)">${pscExpireAnnee.length}</div>
       <div class="label">PSC expirent en ${thisYear}</div>
@@ -1447,36 +1462,30 @@ async function loadDashboard() {
       <div class="label">SN1 expirent en ${thisYear}</div>
       <div class="sub">À renouveler avant le 31/12</div>
     </div>
-    <div class="card card-stat" style="border-top:3px solid var(--rouge)">
-      <div class="value" style="color:var(--rouge)">${sn1Urgent.length}</div>
-      <div class="label">SN1 URGENTS</div>
-      <div class="sub">Expirés mais FC encore possible</div>
-    </div>
-    <div class="card card-stat" style="border-top:3px solid #999">
-      <div class="value" style="color:#999">${sn1Perdu.length}</div>
-      <div class="label">SN1 perdus</div>
-      <div class="sub">+3 ans dépassés — plus de FC possible</div>
-    </div>
+
   `;
 
-  function miniList(agents, color) {
+  // ── Listes urgents/perdus (sans cards redondantes) ──
+  function miniList(agents) {
     if (!agents.length) return '<p style="color:#aaa;font-size:13px;padding:8px">Aucun</p>';
-    return agents.slice(0,8).map(p => `
-      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bordure);font-size:13px">
-        <span><strong>${p.nom}</strong> ${p.prenom} <span style="color:#999;font-size:11px">${p.unite||''}</span></span>
-      </div>`).join('') + (agents.length > 8 ? `<p style="color:#aaa;font-size:12px;padding-top:6px">... et ${agents.length-8} autres</p>` : '');
+    return agents.slice(0,10).map(p =>
+      '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bordure);font-size:13px">' +
+      '<span><strong>' + p.nom + '</strong> ' + p.prenom + ' <span style="color:#999;font-size:11px">' + (p.unite||'') + '</span></span>' +
+      '</div>'
+    ).join('') + (agents.length > 10 ? '<p style="color:#aaa;font-size:12px;padding-top:6px">... et ' + (agents.length-10) + ' autres</p>' : '');
   }
 
-  document.getElementById('dash-alertes-detail').innerHTML = `
-    <div class="card" style="padding:16px">
-      <div style="font-weight:700;font-size:13px;color:var(--rouge);margin-bottom:10px">⚠️ SN1 URGENTS (${sn1Urgent.length})</div>
-      ${miniList(sn1Urgent)}
-    </div>
-    <div class="card" style="padding:16px">
-      <div style="font-weight:700;font-size:13px;color:#999;margin-bottom:10px">❌ SN1 perdus (${sn1Perdu.length})</div>
-      ${miniList(sn1Perdu)}
-    </div>
-  `;
+  const detailDiv = document.getElementById('dash-alertes-detail');
+  detailDiv.style.display = 'grid';
+  detailDiv.innerHTML =
+    '<div class="card" style="padding:16px">' +
+      '<div style="font-weight:700;font-size:13px;color:var(--rouge);margin-bottom:10px">⚠️ SN1 URGENTS (' + sn1Urgent.length + ')</div>' +
+      miniList(sn1Urgent) +
+    '</div>' +
+    '<div class="card" style="padding:16px">' +
+      '<div style="font-weight:700;font-size:13px;color:#999;margin-bottom:10px">❌ SN1 perdus (' + sn1Perdu.length + ')</div>' +
+      miniList(sn1Perdu) +
+    '</div>';
 
   // Recent formations
   const { data: recent } = await db
@@ -1621,7 +1630,7 @@ function openPersonnelModal(id = null) {
 async function savePersonnel() {
   const nigend = document.getElementById('p-nigend').value.trim() || null;
   const nom = document.getElementById('p-nom').value.trim().toUpperCase();
-  const prenom = document.getElementById('p-prenom').value.trim();
+  const prenom = properCase(document.getElementById('p-prenom').value.trim());
   if (!nom || !prenom) { showToast('Nom et Prénom sont obligatoires', 'error'); return; }
 
   // Données fixes de l'agent (table personnel)
@@ -2084,7 +2093,7 @@ async function autofillFromPrenom() {
 
 async function _autofillSearch() {
   const nom = document.getElementById('new-p-nom').value.trim();
-  const prenom = document.getElementById('new-p-prenom').value.trim();
+  const prenom = properCase(document.getElementById('new-p-prenom').value.trim());
   if (nom.length < 2 && prenom.length < 2) return;
   clearTimeout(_autofillTimeout);
   _autofillTimeout = setTimeout(async () => {
@@ -2113,7 +2122,7 @@ function prefillNewPersonnel(p) {
 
 async function addNewPersonnelToList() {
   const nom = document.getElementById('new-p-nom').value.trim().toUpperCase();
-  const prenom = document.getElementById('new-p-prenom').value.trim();
+  const prenom = properCase(document.getElementById('new-p-prenom').value.trim());
   if (!nom || !prenom) { showToast('Nom et Prénom obligatoires', 'error'); return; }
 
   const nigendEl = document.getElementById('new-p-nigend');
@@ -2280,65 +2289,97 @@ async function loadStats() {
   const container = document.getElementById('stats-content');
   container.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement...</div>';
 
-  // Charger tout l'historique avec les infos agents
-  const { data, error } = await db
-    .from('historique_formations')
-    .select('date_formation, type_formation, format, valide, personnel_id')
-    .order('date_formation', { ascending: false });
+  // Charger historique + formations en parallèle
+  const [{ data: histo, error }, { data: sessions }] = await Promise.all([
+    db.from('historique_formations')
+      .select('date_formation, type_formation, format, valide, personnel_id, formation_id')
+      .order('date_formation', { ascending: false }),
+    db.from('formations')
+      .select('id, date_formation, type_formation, format, statut')
+      .neq('statut', 'Annulée')
+  ]);
 
-  if (error || !data || data.length === 0) {
+  if (error || !histo || histo.length === 0) {
     container.innerHTML = '<div class="empty-state"><div class="icon">📈</div><p>Historique vide</p></div>';
     return;
   }
 
-  // Agréger par année / type / format
-  const agg = {};
-  data.forEach(h => {
+  // ── Agréger passages (historique) par année / type / format
+  const aggPassages = {};
+  histo.forEach(h => {
     const year = h.date_formation.substring(0, 4);
     const key = `${year}__${h.type_formation}__${h.format}`;
-    if (!agg[key]) agg[key] = { year, type: h.type_formation, format: h.format, total: 0, valides: 0, agents: new Set() };
-    agg[key].total++;
-    if (h.valide) agg[key].valides++;
-    agg[key].agents.add(h.personnel_id);
+    if (!aggPassages[key]) aggPassages[key] = { year, type: h.type_formation, format: h.format, total: 0, valides: 0, agents: new Set() };
+    aggPassages[key].total++;
+    if (h.valide) aggPassages[key].valides++;
+    aggPassages[key].agents.add(h.personnel_id);
   });
 
-  // Trier et grouper par année
-  const rows = Object.values(agg).sort((a,b) => b.year - a.year || a.type.localeCompare(b.type) || a.format.localeCompare(b.format));
-  const years = [...new Set(rows.map(r => r.year))];
+  // ── Agréger sessions (formations planifiées) par année / type / format
+  const aggSessions = {};
+  (sessions || []).forEach(f => {
+    const year = f.date_formation.substring(0, 4);
+    const key = `${year}__${f.type_formation}__${f.format}`;
+    if (!aggSessions[key]) aggSessions[key] = 0;
+    aggSessions[key]++;
+  });
+
+  const passageRows = Object.values(aggPassages).sort((a,b) =>
+    b.year - a.year || a.type.localeCompare(b.type) || a.format.localeCompare(b.format));
+  const years = [...new Set(passageRows.map(r => r.year))].sort((a,b) => b-a);
 
   container.innerHTML = years.map(year => {
-    const yearRows = rows.filter(r => r.year === year);
-    const totAgents = new Set(data.filter(h => h.date_formation.startsWith(year)).map(h => h.personnel_id)).size;
+    const yearRows = passageRows.filter(r => r.year === year);
+    const totAgents = new Set(histo.filter(h => h.date_formation.startsWith(year)).map(h => h.personnel_id)).size;
     const totValides = yearRows.reduce((s,r) => s + r.valides, 0);
     const totTotal = yearRows.reduce((s,r) => s + r.total, 0);
+    const totSessions = yearRows.reduce((s,r) => s + (aggSessions[`${year}__${r.type}__${r.format}`] || 0), 0);
 
     return `
-    <div class="table-wrapper" style="margin-bottom:20px">
+    <div class="table-wrapper" style="margin-bottom:24px">
       <div class="table-toolbar">
         <strong style="font-size:16px">📅 ${year}</strong>
         <span style="font-size:13px;color:#888">
-          ${totTotal} passage(s) · ${totAgents} agent(s) distinct(s) · ${totValides} validé(s)
+          ${totSessions} session(s) · ${totTotal} passage(s) · ${totAgents} agent(s) distinct(s) · ${totValides} validé(s)
         </span>
       </div>
       <table class="stats-table">
         <thead>
           <tr>
-            <th>Type</th><th>Format</th>
-            <th>Nb passages</th><th>Agents distincts</th>
-            <th>Validés</th><th>Non validés</th><th>Taux réussite</th>
+            <th>Type</th>
+            <th>Format</th>
+            <th>Sessions</th>
+            <th>Passages (stagiaires)</th>
+            <th>Agents distincts</th>
+            <th>Validés</th>
+            <th>Non validés</th>
+            <th>Taux réussite</th>
           </tr>
         </thead>
         <tbody>
-          ${yearRows.map(r => `
-          <tr>
-            <td><strong>${r.type}</strong></td>
-            <td><span class="badge-type type-${r.type.toLowerCase()}-${r.format.toLowerCase()}">${r.format}</span></td>
-            <td>${r.total}</td>
-            <td>${r.agents.size}</td>
-            <td style="color:var(--vert);font-weight:600">${r.valides}</td>
-            <td style="color:var(--rouge)">${r.total - r.valides}</td>
-            <td>${r.total > 0 ? Math.round(r.valides/r.total*100)+'%' : '—'}</td>
-          </tr>`).join('')}
+          \${yearRows.map(r => {
+            const nb = aggSessions[year+'__'+r.type+'__'+r.format] || 0;
+            const taux = r.total > 0 ? Math.round(r.valides/r.total*100)+'%' : '—';
+            return '<tr>' +
+              '<td><strong>'+r.type+'</strong></td>' +
+              '<td><span class="badge-type type-'+r.type.toLowerCase()+'-'+r.format.toLowerCase()+'">'+r.format+'</span></td>' +
+              '<td style="text-align:center;font-weight:600">'+(nb||'—')+'</td>' +
+              '<td style="text-align:center">'+r.total+'</td>' +
+              '<td style="text-align:center">'+r.agents.size+'</td>' +
+              '<td style="color:var(--vert);font-weight:600;text-align:center">'+r.valides+'</td>' +
+              '<td style="color:var(--rouge);text-align:center">'+(r.total-r.valides)+'</td>' +
+              '<td style="text-align:center">'+taux+'</td>' +
+              '</tr>';
+          }).join('')}
+          <tr style="background:var(--gris-clair);font-weight:700;border-top:2px solid var(--bordure)">
+            <td colspan="2">Total ${year}</td>
+            <td style="text-align:center">${totSessions||'—'}</td>
+            <td style="text-align:center">${totTotal}</td>
+            <td style="text-align:center">${totAgents}</td>
+            <td style="color:var(--vert);text-align:center">${totValides}</td>
+            <td style="color:var(--rouge);text-align:center">${totTotal - totValides}</td>
+            <td style="text-align:center">${totTotal > 0 ? Math.round(totValides/totTotal*100)+'%' : '—'}</td>
+          </tr>
         </tbody>
       </table>
     </div>`;
@@ -2387,7 +2428,7 @@ async function toggleFormateur(id, actif) {
 
 async function creerFormateur() {
   const nom = document.getElementById('new-formateur-nom').value.trim().toUpperCase();
-  const prenom = document.getElementById('new-formateur-prenom').value.trim();
+  const prenom = properCase(document.getElementById('new-formateur-prenom').value.trim());
   const email = document.getElementById('new-formateur-email').value.trim();
   const pwd = document.getElementById('new-formateur-pwd').value.trim();
   if (!nom || !prenom) { showToast('Nom et Prénom obligatoires', 'error'); return; }
@@ -2677,7 +2718,7 @@ async function importCSV() {
       byNigend[nigend] = {
         nigend,
         nom,
-        prenom: iPrenom >= 0 ? (cols[iPrenom]||'').trim() : '',
+        prenom: properCase(iPrenom >= 0 ? (cols[iPrenom]||'').trim() : ''),
         sexe: iSexe >= 0 ? ((cols[iSexe]||'M').toUpperCase().trim()||'M') : 'M',
         date_naissance: iDDN >= 0 ? parseDateFR(cols[iDDN]) : null,
         ville_naissance: iLieu >= 0 ? (cols[iLieu]||'').trim() : '',
@@ -3035,6 +3076,17 @@ Cela recalculera les validités de l'agent.`)) return;
   if (document.getElementById('page-personnel').classList.contains('active')) {
     loadPersonnel();
   }
+}
+
+// ─── FORMAT PRÉNOM ─────────────────────────────────────────
+// "JEAN-BAPTISTE" → "Jean-Baptiste", "jean baptiste" → "Jean Baptiste"
+function properCase(str) {
+  if (!str) return str;
+  return str.split(/([- ])/).map((part, i, arr) => {
+    // Garde les séparateurs tels quels
+    if (part === '-' || part === ' ') return part;
+    return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+  }).join('');
 }
 // ─── HELPERS ──────────────────────────────────────────────
 function fmtDate(d) {
