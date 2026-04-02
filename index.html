@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V28</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V31</span></div>
     </div>
   </div>
 
@@ -2461,11 +2461,48 @@ async function loadFormateurs() {
         </div>
       </div>
       <span style="font-size:12px;color:${f.actif?'var(--vert)':'var(--rouge)'}">${f.actif?'Actif':'Inactif'}</span>
+      <button class="btn btn-secondary btn-sm" onclick="editFormateur('${f.id}','${f.qualification||''}')">✏️</button>
       ${!f.is_admin ? `<button class="btn btn-secondary btn-sm" onclick="toggleFormateur('${f.id}',${!f.actif})">${f.actif?'Désactiver':'Activer'}</button>` : ''}
     </div>
   `).join('') || '<p style="color:#999;font-size:13px">Aucun formateur</p>';
 }
 
+
+async function editFormateur(id, currentQualif) {
+  const qualifs = ['', 'FPSE', 'FPSC', 'FoSST', 'FF+FPSC', 'FF+FPSE', 'FoFoSST', 'F SauveTaGe'];
+  const options = qualifs.map(q =>
+    `<option value="${q}" ${q === currentQualif ? 'selected' : ''}>${q || '— Aucune —'}</option>`
+  ).join('');
+
+  // Créer un mini modal inline
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  div.innerHTML = `
+    <div style="background:white;border-radius:12px;padding:24px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;color:var(--bleu);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px">Modifier qualification</h3>
+      <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#666;display:block;margin-bottom:6px">Qualification</label>
+      <select id="edit-qualif-select" style="width:100%;padding:10px;border:1.5px solid var(--bordure);border-radius:8px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;margin-bottom:16px">
+        ${options}
+      </select>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:8px 16px;border:none;border-radius:7px;background:var(--gris-clair);cursor:pointer;font-family:'Barlow',sans-serif">Annuler</button>
+        <button onclick="saveFormateurQualif('${id}',document.getElementById('edit-qualif-select').value,this)" style="padding:8px 16px;border:none;border-radius:7px;background:var(--bleu);color:white;cursor:pointer;font-family:'Barlow',sans-serif;font-weight:600">Enregistrer</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(div);
+  div.addEventListener('click', e => { if (e.target === div) div.remove(); });
+}
+
+async function saveFormateurQualif(id, qualif, btn) {
+  btn.textContent = '...';
+  btn.disabled = true;
+  const { error } = await db.from('formateurs').update({ qualification: qualif || null }).eq('id', id);
+  btn.closest('div[style*="fixed"]').remove();
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('Qualification mise à jour ✅', 'success');
+  loadFormateurs();
+}
 async function toggleFormateur(id, actif) {
   const { error } = await db.from('formateurs').update({actif}).eq('id', id);
   if (error) { showToast('Erreur', 'error'); return; }
@@ -3244,21 +3281,25 @@ async function genererPV() {
     const resp = formation.responsable;
     const qualif = resp?.qualification || (type === 'SN1' ? 'F SauveTaGe' : 'FPSC');
 
-    // ── 1. N° PV dans Tableau1 ──
+    // ── Préparation lieu ──
+    const lieuVille = lieu.split('(')[0].trim().toUpperCase();
+    const lieuDept = lieu.match(/\((\d+)\)/)?.[1] || '56';
+    const newCri = escXml(String(cri));
+    const newDate = `${dd}/${dm}/20${dy.slice(2)}`;
+
+    // ── 1. N° PV ──
     xml = xml.replace(
-      'N° <text:span text:style-name="T1">XXXX</text:span> du <text:span text:style-name="T1">XX/XX/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">26</text:span>',
-      `N° <text:span text:style-name="T1">${escXml(cri)}</text:span> du <text:span text:style-name="T1">${dd}/${dm}/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">${dy.slice(2)}</text:span>`
+      '<text:span text:style-name="T1">XXXX</text:span> du <text:span text:style-name="T1">XX/XX/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">26</text:span>',
+      `<text:span text:style-name="T1">${newCri}</text:span> du <text:span text:style-name="T1">${dd}/${dm}/</text:span><text:span text:style-name="T2">20</text:span><text:span text:style-name="T3">${dy.slice(2)}</text:span>`
     );
 
-    // ── 2. Date et lieu dans Tableau3 ──
+    // ── 2. Date formation ──
     xml = xml.replace(
       '<text:span text:style-name="T8">XX</text:span>/<text:span text:style-name="T8">XX</text:span>/202<text:span text:style-name="T8">6</text:span>',
       `<text:span text:style-name="T8">${dd}</text:span>/<text:span text:style-name="T8">${dm}</text:span>/20<text:span text:style-name="T8">${dy.slice(2)}</text:span>`
     );
 
-    // Lieu (ville) - extract ville sans département
-    const lieuVille = lieu.split('(')[0].trim().toUpperCase();
-    const lieuDept = lieu.match(/\((\d+)\)/)?.[1] || '56';
+    // ── 3. Lieu ──
     xml = xml.replace(
       '<text:span text:style-name="T8">XXXXXX</text:span><text:span text:style-name="T9"> (</text:span><text:span text:style-name="T8">56</text:span><text:span text:style-name="T9">)</text:span>',
       `<text:span text:style-name="T8">${escXml(lieuVille)}</text:span><text:span text:style-name="T9"> (</text:span><text:span text:style-name="T8">${lieuDept}</text:span><text:span text:style-name="T9">)</text:span>`
