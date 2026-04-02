@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V34</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V35</span></div>
     </div>
   </div>
 
@@ -3266,13 +3266,16 @@ async function genererPV() {
     let xml = await zip.file('content.xml').async('string');
 
     // ── DEBUG TABLEAUX (à retirer après diagnostic) ──
-    // Cherche le nom du tableau participants (contient RGBRET)
-    const dbgRgbret = xml.indexOf('RGBRET');
-    if (dbgRgbret >= 0) console.log('[DEBUG] Autour de RGBRET :', JSON.stringify(xml.slice(Math.max(0,dbgRgbret-200), dbgRgbret+50)));
-    // Cherche le style des lignes de données (juste après le header)
-    const dbgTableau5 = xml.indexOf('Tableau5');
-    if (dbgTableau5 >= 0) console.log('[DEBUG] Autour de Tableau5 :', JSON.stringify(xml.slice(Math.max(0,dbgTableau5-20), dbgTableau5+200)));
-    else console.log('[DEBUG] Pas de Tableau5 — cherche responsable pédagogique :', JSON.stringify(xml.slice(xml.indexOf('dagogique')-20, xml.indexOf('dagogique')+300)));
+    // Tous les noms de tableaux utilisés dans le contenu
+    const tableNames = [...new Set([...xml.matchAll(/table:name="([^"]+)"/g)].map(m=>m[1]))];
+    console.log('[DEBUG] Tableaux trouvés :', JSON.stringify(tableNames));
+    // Styles de lignes (table-row style-name)
+    const rowStyles = [...new Set([...xml.matchAll(/table:table-row table:style-name="([^"]+)"/g)].map(m=>m[1]))];
+    console.log('[DEBUG] Styles de lignes :', JSON.stringify(rowStyles));
+    // Cherche XXXXX (pied de page)
+    const dbgXXXXX = xml.indexOf('XXXXX');
+    if (dbgXXXXX >= 0) console.log('[DEBUG] Autour de XXXXX :', JSON.stringify(xml.slice(Math.max(0,dbgXXXXX-100), dbgXXXXX+100)));
+    else console.log('[DEBUG] XXXXX non trouvé dans le XML');
 
     // ── Données à injecter ──
     const date = formation.date_formation;
