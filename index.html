@@ -679,7 +679,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V13</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V14</span></div>
     </div>
   </div>
 
@@ -1180,6 +1180,19 @@ tbody td {
   </div>
 </div>
 
+<!-- Modal : Historique formations d'un agent -->
+<div class="modal-overlay" id="modal-historique-agent">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <h3 id="historique-agent-title">Historique formations</h3>
+      <button class="modal-close" onclick="closeModal('modal-historique-agent')">✕</button>
+    </div>
+    <div class="modal-body" id="historique-agent-body">
+      <div class="loading"><div class="spinner"></div> Chargement...</div>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
@@ -1406,7 +1419,7 @@ async function loadPersonnel() {
   if (!db) return;
   document.getElementById('tbody-personnel').innerHTML = '<tr><td colspan="12"><div class="loading"><div class="spinner"></div> Chargement...</div></td></tr>';
 
-  const { data, error } = await db.from('personnel').select('*').order('nom');
+  const { data, error } = await db.from('personnel_formations_resume').select('*').order('nom');
   if (error) { showToast('Erreur chargement personnel', 'error'); return; }
 
   allPersonnel = data || [];
@@ -1455,6 +1468,7 @@ function renderPersonnel(list) {
       <td style="text-align:center">${p.sn1_nb_total||0}</td>
       <td>
         <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openPersonnelModal('${p.id}')">✏️</button>
+        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openHistoriqueModal('${p.id}','${p.nom} ${p.prenom}')" title="Historique formations">📅</button>
         ${currentFormateur?.is_admin ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deletePersonnel('${p.id}')">🗑</button>` : ''}
       </td>
     </tr>
@@ -1687,6 +1701,7 @@ async function openFormationDetail(id) {
 
   if (!f) return;
 
+  const peutCloturer = !['Clôturée','Annulée'].includes(f.statut);
   document.getElementById('formation-detail-header').innerHTML = `
     <div>
       <h2>${f.type_formation} ${f.format} — ${fmtDate(f.date_formation)}</h2>
@@ -1699,8 +1714,9 @@ async function openFormationDetail(id) {
         ${f.nom_fichier ? `<span style="margin-left:8px;opacity:0.7;font-size:13px">📁 ${f.nom_fichier}</span>` : ''}
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
       <button class="btn" style="background:rgba(255,255,255,0.15);color:white" onclick="openFormationModal('${f.id}')">✏️ Modifier</button>
+      ${peutCloturer ? `<button class="btn" style="background:#1a7a4a;color:white;font-weight:700" onclick="cloturerFormation('${f.id}')">🔒 Clôturer</button>` : '<span style="opacity:0.6;font-size:13px;padding-top:10px">Formation clôturée</span>'}
     </div>
   `;
 
@@ -2033,10 +2049,17 @@ async function openEditPersonnelInline(personnelId) {
 async function addParticipant() { await addAllParticipants(); } // compat
 
 async function removeParticipant(fpId) {
-  if (!confirm('Retirer ce participant ?')) return;
-  const { error } = await db.from('formation_participants').delete().eq('id', fpId);
-  if (error) { showToast('Erreur', 'error'); return; }
-  showToast('Participant retiré', 'success');
+  if (!confirm('Retirer ce participant de la formation ?')) return;
+  const { error } = await db
+    .from('formation_participants')
+    .delete()
+    .eq('id', fpId);
+  if (error) {
+    showToast('Erreur suppression : ' + error.message, 'error');
+    console.error('removeParticipant error:', error);
+    return;
+  }
+  showToast('Participant retiré ✓', 'success');
   await loadParticipants(currentFormationId);
 }
 
@@ -2061,30 +2084,28 @@ function calcFcSN1(dateStr) {
   return d.toISOString().split('T')[0];
 }
 
-async function updatePersonnelStats(personnelId, formationId) {
-  const { data: f } = await db.from('formations').select('type_formation, format, date_formation').eq('id', formationId).single();
-  if (!f) return;
-  const { data: p } = await db.from('personnel').select('*').eq('id', personnelId).single();
-  if (!p) return;
+// N'est plus utilisé pour mettre à jour personnel directement
+// L'historique est la source de vérité — la vue calcule tout
+async function updatePersonnelStats(personnelId, formationId, valide = true) {
+  // Ne rien faire ici — l'insertion dans historique se fait à la clôture
+  // ou manuellement via insererHistorique
+}
 
-  const update = {};
-  if (f.type_formation === 'PSC') {
-    update.psc_nb_total = (p.psc_nb_total || 0) + 1;
-    if (!p.psc_date_derniere || f.date_formation > p.psc_date_derniere) {
-      update.psc_date_derniere = f.date_formation;
-      update.psc_validite = calcValiditePSC(f.date_formation);
-    }
-  } else if (f.type_formation === 'SN1') {
-    update.sn1_nb_total = (p.sn1_nb_total || 0) + 1;
-    if (!p.sn1_date_derniere || f.date_formation > p.sn1_date_derniere) {
-      update.sn1_date_derniere = f.date_formation;
-      update.sn1_validite = calcValiditeSN1(f.date_formation);
-      update.sn1_possible_fc = calcFcSN1(f.date_formation);
-    }
-  }
-  if (Object.keys(update).length > 0) {
-    await db.from('personnel').update(update).eq('id', personnelId);
-  }
+// Insère une ligne dans l'historique (appelée à la clôture ou à l'ajout de participant)
+async function insererHistorique(personnelId, formationId, valide) {
+  const { data: f } = await db.from('formations')
+    .select('type_formation, format, date_formation')
+    .eq('id', formationId).single();
+  if (!f) return;
+  const { error } = await db.from('historique_formations').insert({
+    personnel_id: personnelId,
+    formation_id: formationId,
+    date_formation: f.date_formation,
+    type_formation: f.type_formation,
+    format: f.format,
+    valide: valide,
+  });
+  if (error && error.code !== '23505') console.error('Historique insert error:', error);
 }
 
 // ─── STATS ────────────────────────────────────────────────
@@ -2199,7 +2220,7 @@ async function creerFormateur() {
 
 // ─── EXPORTS ──────────────────────────────────────────────
 async function exportPersonnelCSV() {
-  const { data } = await db.from('personnel').select('*').order('nom');
+  const { data } = await db.from('personnel_formations_resume').select('*').order('nom');
   if (!data) return;
   const headers = ['NIGEND','Nom','Prénom','Sexe','Date naissance','Ville naissance','Unité',
     'PSC date','PSC validité','PSC nb','SN1 date','SN1 validité','SN1 nb','SN1 possible FC'];
@@ -2563,26 +2584,78 @@ async function confirmImport() {
   const preview = document.getElementById('import-preview');
   preview.innerHTML = '<div class="loading"><div class="spinner"></div> Import en cours...</div>';
 
-  let inserted = 0, updated = 0, errors = 0;
+  let inserted = 0, errors = 0;
   const errorDetails = [];
 
-  for (let i = 0; i < rows.length; i += 50) {
-    const chunk = rows.slice(i, i + 50);
+  // Séparer les données fixes (personnel) des données d'historique (PSC/SN1)
+  const personnelRows = rows.map(r => ({
+    nigend: r.nigend || null,
+    nom: r.nom,
+    prenom: r.prenom,
+    sexe: r.sexe,
+    date_naissance: r.date_naissance,
+    ville_naissance: r.ville_naissance,
+    unite: r.unite,
+  }));
+
+  // Upsert personnel par chunks de 50
+  const personnelMap = {}; // nigend -> id
+  for (let i = 0; i < personnelRows.length; i += 50) {
+    const chunk = personnelRows.slice(i, i + 50);
     const { data, error } = await db.from('personnel')
       .upsert(chunk, { onConflict: 'nigend', ignoreDuplicates: false })
-      .select();
+      .select('id, nigend, nom, prenom');
     if (error) {
-      console.error('Import error:', error);
+      console.error('Import personnel error:', error);
       errorDetails.push(error.message);
       errors += chunk.length;
     } else {
+      (data || []).forEach(p => {
+        if (p.nigend) personnelMap[p.nigend] = p.id;
+        else personnelMap[p.nom + '_' + p.prenom] = p.id;
+      });
       inserted += (data || []).length;
+    }
+  }
+
+  // Insérer les lignes d'historique PSC et SN1
+  const histoRows = [];
+  rows.forEach(r => {
+    const key = r.nigend || (r.nom + '_' + r.prenom);
+    const pid = personnelMap[key];
+    if (!pid) return;
+    if (r.psc_date_derniere) {
+      histoRows.push({
+        personnel_id: pid,
+        date_formation: r.psc_date_derniere,
+        type_formation: 'PSC',
+        format: 'FC',
+        valide: true,
+      });
+    }
+    if (r.sn1_date_derniere) {
+      histoRows.push({
+        personnel_id: pid,
+        date_formation: r.sn1_date_derniere,
+        type_formation: 'SN1',
+        format: 'FC',
+        valide: true,
+      });
+    }
+  });
+
+  if (histoRows.length > 0) {
+    for (let i = 0; i < histoRows.length; i += 100) {
+      const chunk = histoRows.slice(i, i + 100);
+      const { error } = await db.from('historique_formations').insert(chunk);
+      if (error) console.error('Historique insert error:', error);
     }
   }
 
   preview.innerHTML = `
     <div style="background:${errors>0?'#fff3cd':'#d4edda'};border-radius:8px;padding:14px;font-size:14px">
-      ${errors > 0 ? '⚠️' : '✅'} Import terminé : <strong>${inserted}</strong> agents importés/mis à jour
+      ${errors > 0 ? '⚠️' : '✅'} Import terminé : <strong>${inserted}</strong> agents,
+      <strong>${histoRows.length}</strong> entrées d'historique
       ${errors > 0 ? `<br><span style="color:red;font-size:12px">Erreurs (${errors}) : ${errorDetails[0]}</span>` : ''}
     </div>
   `;
@@ -2590,6 +2663,112 @@ async function confirmImport() {
   _importRows = [];
   document.getElementById('import-csv-file').value = '';
   if (document.getElementById('page-personnel').classList.contains('active')) loadPersonnel();
+}
+
+// ─── CLÔTURE DE FORMATION ─────────────────────────────────
+async function cloturerFormation(formationId) {
+  if (!confirm(`Clôturer cette formation ?
+Tous les participants seront enregistrés dans l'historique.
+Validés → nouvelle validité. Non validés → historique sans validité.`)) return;
+
+  // Récupérer tous les participants
+  const { data: participants, error: errPart } = await db
+    .from('formation_participants')
+    .select('*, personnel(id, nom, prenom)')
+    .eq('formation_id', formationId);
+
+  if (errPart) { showToast('Erreur : ' + errPart.message, 'error'); return; }
+  if (!participants || participants.length === 0) {
+    showToast('Aucun participant à enregistrer', 'error'); return;
+  }
+
+  // Récupérer les infos de la formation
+  const { data: f } = await db.from('formations')
+    .select('type_formation, format, date_formation')
+    .eq('id', formationId).single();
+
+  // Insérer dans l'historique
+  const histoRows = participants.map(fp => ({
+    personnel_id: fp.personnel_id,
+    formation_id: formationId,
+    date_formation: f.date_formation,
+    type_formation: f.type_formation,
+    format: f.format,
+    valide: fp.resultat === 'Validé',
+    notes: fp.notes || null,
+  }));
+
+  const { error: errHisto } = await db.from('historique_formations').insert(histoRows);
+  if (errHisto) { showToast('Erreur historique : ' + errHisto.message, 'error'); return; }
+
+  // Passer la formation en Clôturée
+  await db.from('formations').update({ statut: 'Clôturée' }).eq('id', formationId);
+
+  showToast(`Formation clôturée — ${participants.length} participants enregistrés`, 'success');
+  await openFormationDetail(formationId);
+  loadFormations();
+}
+
+// ─── HISTORIQUE AGENT ─────────────────────────────────────
+async function openHistoriqueModal(personnelId, nomComplet) {
+  document.getElementById('historique-agent-title').textContent = 'Historique — ' + nomComplet;
+  document.getElementById('historique-agent-body').innerHTML = '<div class="loading"><div class="spinner"></div> Chargement...</div>';
+  openModal('modal-historique-agent');
+
+  const { data, error } = await db
+    .from('historique_formations')
+    .select('*, formations(numero_cri, lieu, formateurs(nom, prenom))')
+    .eq('personnel_id', personnelId)
+    .order('date_formation', { ascending: false });
+
+  const body = document.getElementById('historique-agent-body');
+  if (error || !data || data.length === 0) {
+    body.innerHTML = '<div class="empty-state"><div class="icon">📅</div><p>Aucune formation enregistrée</p></div>';
+    return;
+  }
+
+  const psc = data.filter(h => h.type_formation === 'PSC');
+  const sn1 = data.filter(h => h.type_formation === 'SN1');
+
+  function renderTable(rows, type) {
+    if (!rows.length) return '<p style="color:#aaa;font-size:13px;padding:8px 0">Aucune formation ' + type + '</p>';
+    return `<table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:var(--gris-clair)">
+        <th style="padding:7px 10px;text-align:left">Date</th>
+        <th style="padding:7px 10px;text-align:left">Format</th>
+        <th style="padding:7px 10px;text-align:center">Validé</th>
+        <th style="padding:7px 10px;text-align:left">N° CRI</th>
+        <th style="padding:7px 10px;text-align:left">Commentaire</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(h => `
+        <tr style="border-bottom:1px solid var(--bordure)">
+          <td style="padding:7px 10px;font-weight:600">${fmtDate(h.date_formation)}</td>
+          <td style="padding:7px 10px"><span class="badge-type type-${h.type_formation.toLowerCase()}-${h.format.toLowerCase()}">${h.format}</span></td>
+          <td style="padding:7px 10px;text-align:center">${h.valide ? '<span style="color:var(--vert)">✅</span>' : '<span style="color:var(--rouge)">❌</span>'}</td>
+          <td style="padding:7px 10px">${h.formations?.numero_cri || '—'}</td>
+          <td style="padding:7px 10px;color:#888;font-size:12px">${h.notes || ''}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  }
+
+  body.innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--bleu);margin-bottom:8px">
+        PSC — ${psc.length} formation(s)
+        ${psc.filter(h=>h.valide).length > 0 ? '<span style="font-size:12px;color:var(--vert);font-weight:400;margin-left:8px">Dernière validée : ' + fmtDate(psc.filter(h=>h.valide)[0]?.date_formation) + '</span>' : ''}
+      </div>
+      ${renderTable(psc, 'PSC')}
+    </div>
+    <div>
+      <div style="font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--vert);margin-bottom:8px">
+        SN1 — ${sn1.length} formation(s)
+        ${sn1.filter(h=>h.valide).length > 0 ? '<span style="font-size:12px;color:var(--vert);font-weight:400;margin-left:8px">Dernière validée : ' + fmtDate(sn1.filter(h=>h.valide)[0]?.date_formation) + '</span>' : ''}
+      </div>
+      ${renderTable(sn1, 'SN1')}
+    </div>
+  `;
 }
 // ─── HELPERS ──────────────────────────────────────────────
 function fmtDate(d) {
