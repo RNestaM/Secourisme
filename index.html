@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V39</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V41</span></div>
     </div>
   </div>
 
@@ -3265,10 +3265,10 @@ async function genererPV() {
     }
     let xml = await zip.file('content.xml').async('string');
 
-    // DEBUG temporaire : voir comment {FormNom} est encodé dans le XML
-    const dbgForm = xml.indexOf('FormNom');
-    if (dbgForm >= 0) console.log('[DEBUG] FormNom dans XML :', JSON.stringify(xml.slice(Math.max(0,dbgForm-60), dbgForm+60)));
-    else console.log('[DEBUG] FormNom non trouvé — marqueur peut-être fragmenté, cherche "Form" :', JSON.stringify(xml.slice(Math.max(0,xml.indexOf('Form')-30), xml.indexOf('Form')+80)));
+    // ── Normalisation : LibreOffice fragmente parfois les marqueurs entre spans
+    // ex: "{FormNom<span>}</span>" → "{FormNom}"
+    // On supprime tous les spans qui ne contiennent que "}" immédiatement après un marqueur ouvert
+    xml = xml.replace(/(\{[A-Za-z]+)<text:span[^>]*>(\})<\/text:span>/g, '$1$2');
 
     // ── Données ──
     const date = formation.date_formation;
@@ -3303,10 +3303,10 @@ async function genererPV() {
       xml = xml.replaceAll(marker, value);
     }
 
-    // ── Participants : ligne marqueur → 10 lignes de données ──
-    // Le template doit contenir UNE ligne avec {NIGEND},{NOM},{PRENOM},{SEXE},{DDN},{LIEUNAISSANCE},RGBRET,{UNITE},{RESULTAT}
-    // On trouve la ligne <table:table-row> qui contient {NIGEND}, on la duplique 10 fois
-    const rowMarkerRegex = /(<table:table-row\b[^>]*>(?:(?!<\/table:table-row>)[\s\S])*\{NIGEND\}[\s\S]*?<\/table:table-row>)/;
+    // ── Participants : ligne marqueur + toutes les lignes suivantes du tableau → 10 lignes exactes ──
+    // On trouve la ligne {NIGEND}, puis on capture tout jusqu'à la fin du tableau (</table:table>)
+    // et on remplace l'ensemble par exactement 10 lignes
+    const rowMarkerRegex = /(<table:table-row\b[^>]*>(?:(?!<\/table:table-row>)[\s\S])*\{NIGEND\}[\s\S]*?<\/table:table-row>)((?:\s*<table:table-row\b[\s\S]*?<\/table:table-row>)*)/;
     const rowMatch = xml.match(rowMarkerRegex);
     if (rowMatch) {
       const templateRow = rowMatch[1];
@@ -3335,6 +3335,7 @@ async function genererPV() {
             .replace(/\{UNITE\}/g, '').replace(/\{RESULTAT\}/g, '');
         }
       }
+      // Remplace la ligne marqueur + toutes les lignes suivantes par les 10 lignes générées
       xml = xml.replace(rowMarkerRegex, newRows);
     }
 
