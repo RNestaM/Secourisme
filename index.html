@@ -609,25 +609,7 @@ tbody td {
 .search-result-item small { color: #888; }
 .search-wrapper { position: relative; }
 
-/* ── VERSION ─────────────────────────────────────── */
-#version-badge {
-  position: fixed;
-  bottom: 12px;
-  left: 12px;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: rgba(255,255,255,0.35);
-  background: transparent;
-  z-index: 9999;
-  user-select: none;
-  pointer-events: none;
-}
-#login-screen ~ #version-badge,
-#login-screen:not([style*="none"]) + * #version-badge {
-  color: rgba(255,255,255,0.3);
-}
+
 </style>
 </head>
 <body>
@@ -697,6 +679,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V10</span></div>
     </div>
   </div>
 
@@ -866,8 +849,8 @@ tbody td {
       <div class="config-section">
         <h3>📥 Import Personnel (CSV / Excel)</h3>
         <p style="font-size:13px;color:#888;margin-bottom:12px">
-          Colonnes attendues (dans l'ordre) : <strong>NIGEND, NOM, PRENOM, SEXE, DATE_NAISSANCE, VILLE_NAISSANCE, UNITE</strong><br>
-          Les doublons (même NIGEND) sont ignorés. Séparateur : virgule ou point-virgule.
+          Colonnes attendues (dans l'ordre) : <strong>NIGEND, NOM, PRENOM, SEXE, DATE_NAISSANCE, VILLE_NAISSANCE, UNITE, PSC_DATE, SN1_DATE</strong><br>
+          Les 2 dernières colonnes sont optionnelles. Les doublons (même NIGEND) sont mis à jour. Séparateur : virgule ou point-virgule.
         </p>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
           <input type="file" id="import-csv-file" accept=".csv,.xlsx,.xls,.txt" style="font-size:13px">
@@ -1253,7 +1236,7 @@ async function loadCurrentFormateur() {
   }
 }
 
-function showApp() {
+async function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -1264,7 +1247,7 @@ function showApp() {
     document.getElementById('user-role').textContent = '⚠️ Auth suspendue';
     document.getElementById('user-avatar').textContent = 'DEV';
   }
-  refreshUnitesDatalist();
+  await refreshUnitesDatalist();
   try { loadDashboard(); } catch(e) { console.error('Dashboard error:', e); }
 }
 
@@ -1869,9 +1852,9 @@ async function loadStats() {
 }
 
 // ─── CONFIG ───────────────────────────────────────────────
-function loadConfig() {
-  renderUnitesList();
-  refreshUnitesDatalist();
+async function loadConfig() {
+  await renderUnitesList();
+  await refreshUnitesDatalist();
   if (currentFormateur?.is_admin) {
     document.getElementById('cfg-admin-section').style.display = 'block';
     loadFormateurs();
@@ -2037,36 +2020,40 @@ async function saveComment() {
   await loadParticipants(currentFormationId);
 }
 
-// ─── UNITÉS ───────────────────────────────────────────────
+// ─── UNITÉS (Supabase) ────────────────────────────────────
 const DEFAULT_UNITES = [
   'BTA GUINGAMP','PSIG GUINGAMP','BR GUINGAMP','GC GUINGAMP',
   'COB BEGARD','COB CALLAC','COB GUERLEDAN','COB ROSTRENEN',
   'PMO GUINGAMP','BTA FOUESNANT','PSPG PALUEL','BTA PERROS-GUIREC',
-  'BP BINIC-ETABLES-SUR-MER','COB BEGARD'
+  'BP BINIC-ETABLES-SUR-MER'
 ];
 
-function getUnites() {
-  const stored = localStorage.getItem('unites');
-  if (stored) return JSON.parse(stored);
-  localStorage.setItem('unites', JSON.stringify(DEFAULT_UNITES));
-  return DEFAULT_UNITES;
+let cachedUnites = null;
+
+async function getUnites() {
+  if (cachedUnites) return cachedUnites;
+  const { data, error } = await db.from('unites').select('nom').order('nom');
+  if (error || !data || data.length === 0) {
+    // Seed defaults if table empty
+    cachedUnites = DEFAULT_UNITES;
+    return cachedUnites;
+  }
+  cachedUnites = data.map(r => r.nom);
+  return cachedUnites;
 }
 
-function saveUnites(list) {
-  localStorage.setItem('unites', JSON.stringify([...new Set(list)].sort()));
-}
-
-function refreshUnitesDatalist() {
+async function refreshUnitesDatalist() {
   const dl = document.getElementById('unite-list');
   if (!dl) return;
-  const unites = getUnites();
+  const unites = await getUnites();
   dl.innerHTML = unites.map(u => `<option value="${u}">`).join('');
 }
 
-function renderUnitesList() {
-  const unites = getUnites();
+async function renderUnitesList() {
+  const unites = await getUnites();
   const div = document.getElementById('unites-list');
   if (!div) return;
+  div.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   div.innerHTML = unites.map(u => `
     <span style="display:inline-flex;align-items:center;gap:6px;background:var(--gris-clair);border:1px solid var(--bordure);border-radius:20px;padding:4px 12px;font-size:13px">
       ${u}
@@ -2075,26 +2062,26 @@ function renderUnitesList() {
   `).join('');
 }
 
-function addUnite() {
+async function addUnite() {
   const input = document.getElementById('new-unite-input');
   const val = input.value.trim().toUpperCase();
   if (!val) return;
-  const unites = getUnites();
-  if (!unites.includes(val)) {
-    unites.push(val);
-    saveUnites(unites);
-    renderUnitesList();
-    refreshUnitesDatalist();
-    showToast('Unité ajoutée', 'success');
-  }
+  const { error } = await db.from('unites').insert({ nom: val });
+  if (error && error.code !== '23505') { showToast('Erreur : ' + error.message, 'error'); return; }
+  cachedUnites = null; // reset cache
   input.value = '';
+  await renderUnitesList();
+  await refreshUnitesDatalist();
+  showToast('Unité ajoutée', 'success');
 }
 
-function removeUnite(unite) {
-  const unites = getUnites().filter(u => u !== unite);
-  saveUnites(unites);
-  renderUnitesList();
-  refreshUnitesDatalist();
+async function removeUnite(unite) {
+  if (!confirm(`Supprimer l'unité "${unite}" ?`)) return;
+  const { error } = await db.from('unites').delete().eq('nom', unite);
+  if (error) { showToast('Erreur', 'error'); return; }
+  cachedUnites = null;
+  await renderUnitesList();
+  await refreshUnitesDatalist();
 }
 
 // ─── IMPORT CSV ───────────────────────────────────────────
@@ -2122,6 +2109,12 @@ async function importCSV() {
       date_naissance: parseDateFR(cols[4]),
       ville_naissance: (cols[5]||'').trim(),
       unite: (cols[6]||'').toUpperCase().trim(),
+      psc_date_derniere: parseDateFR(cols[7]) || null,
+      psc_validite: computeValidite(parseDateFR(cols[7]), 2),
+      psc_nb_total: parseDateFR(cols[7]) ? 1 : 0,
+      sn1_date_derniere: parseDateFR(cols[8]) || null,
+      sn1_validite: computeValidite(parseDateFR(cols[8]), 2),
+      sn1_nb_total: parseDateFR(cols[8]) ? 1 : 0,
     };
   }).filter(r => r.nigend && r.nom);
 
@@ -2170,6 +2163,14 @@ function parseDateFR(str) {
   return null;
 }
 
+function computeValidite(dateStr, years) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
+  d.setFullYear(d.getFullYear() + years);
+  return d.toISOString().split('T')[0];
+}
+
 async function confirmImport(rows) {
   const preview = document.getElementById('import-preview');
   preview.innerHTML = '<div class="loading"><div class="spinner"></div> Import en cours...</div>';
@@ -2180,7 +2181,7 @@ async function confirmImport(rows) {
   for (let i = 0; i < rows.length; i += 50) {
     const chunk = rows.slice(i, i + 50);
     const { data, error } = await db.from('personnel')
-      .upsert(chunk, { onConflict: 'nigend', ignoreDuplicates: true })
+      .upsert(chunk, { onConflict: 'nigend', ignoreDuplicates: false })
       .select();
     if (error) {
       console.error('Import error:', error);
@@ -2253,6 +2254,5 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 });
 </script>
 
-<div id="version-badge"><span id="github-version">V9</span></div>
 </body>
 </html>
