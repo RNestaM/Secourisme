@@ -679,7 +679,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V17</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V18</span></div>
     </div>
   </div>
 
@@ -1652,23 +1652,27 @@ async function savePersonnel() {
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
 
   // Insérer dans l'historique si dates renseignées
+  // Ajouter dans l'historique uniquement si date non vide
+  // Pour supprimer une date, utiliser le bouton × dans le dossier agent
   if (personnelId && pscDate) {
-    await db.from('historique_formations').upsert({
+    const { error: ePsc } = await db.from('historique_formations').insert({
       personnel_id: personnelId,
       date_formation: pscDate,
       type_formation: 'PSC',
       format: 'FC',
       valide: true,
-    }, { onConflict: 'personnel_id,date_formation,type_formation', ignoreDuplicates: true });
+    });
+    if (ePsc && ePsc.code !== '23505') console.error('PSC insert:', ePsc);
   }
   if (personnelId && sn1Date) {
-    await db.from('historique_formations').upsert({
+    const { error: eSn1 } = await db.from('historique_formations').insert({
       personnel_id: personnelId,
       date_formation: sn1Date,
       type_formation: 'SN1',
       format: 'FC',
       valide: true,
-    }, { onConflict: 'personnel_id,date_formation,type_formation', ignoreDuplicates: true });
+    });
+    if (eSn1 && eSn1.code !== '23505') console.error('SN1 insert:', eSn1);
   }
 
   showToast(editingPersonnelId ? 'Agent mis à jour' : 'Agent ajouté', 'success');
@@ -2902,7 +2906,12 @@ Validés → nouvelle validité. Non validés → historique sans validité.`)) 
 }
 
 // ─── HISTORIQUE AGENT ─────────────────────────────────────
+let _currentHistoPersonnelId = null;
+let _currentHistoNomComplet = null;
+
 async function openHistoriqueModal(personnelId, nomComplet) {
+  _currentHistoPersonnelId = personnelId;
+  _currentHistoNomComplet = nomComplet;
   document.getElementById('historique-agent-title').textContent = 'Dossier — ' + nomComplet;
   document.getElementById('historique-agent-body').innerHTML = '<div class="loading"><div class="spinner"></div> Chargement...</div>';
   openModal('modal-historique-agent');
@@ -2944,6 +2953,7 @@ async function openHistoriqueModal(personnelId, nomComplet) {
         <th style="padding:7px 10px;text-align:left">Lieu</th>
         <th style="padding:7px 10px;text-align:left">Formateur</th>
         <th style="padding:7px 10px;text-align:left">Note</th>
+        <th style="width:32px"></th>
       </tr></thead>
       <tbody>
         ${rows.map(h => `
@@ -2957,6 +2967,11 @@ async function openHistoriqueModal(personnelId, nomComplet) {
           <td style="padding:7px 10px;font-size:12px">${h.formations?.lieu || '—'}</td>
           <td style="padding:7px 10px;font-size:12px">${h.formations?.responsable ? h.formations.responsable.prenom+' '+h.formations.responsable.nom : '—'}</td>
           <td style="padding:7px 10px;color:#888;font-size:12px">${h.notes || ''}</td>
+          <td style="padding:4px 6px">
+            <button onclick="supprimerHistorique('${h.id}')"
+              style="background:none;border:1px solid #ddd;border-radius:4px;cursor:pointer;color:#c0392b;font-size:14px;padding:2px 7px;line-height:1"
+              title="Supprimer cette ligne">×</button>
+          </td>
         </tr>`).join('')}
       </tbody>
     </table>`;
@@ -3000,6 +3015,26 @@ async function openHistoriqueModal(personnelId, nomComplet) {
       ${renderTable(sn1)}
     </div>
   `;
+}
+
+// ─── SUPPRESSION HISTORIQUE ───────────────────────────────
+async function supprimerHistorique(historiqueId) {
+  if (!confirm(`Supprimer cette ligne de l'historique ?
+Cela recalculera les validités de l'agent.`)) return;
+  const { error } = await db
+    .from('historique_formations')
+    .delete()
+    .eq('id', historiqueId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('Ligne supprimée', 'success');
+  // Rafraîchir le modal et la liste
+  if (_currentHistoPersonnelId) {
+    await openHistoriqueModal(_currentHistoPersonnelId, _currentHistoNomComplet);
+  }
+  // Rafraîchir la liste personnel si ouverte
+  if (document.getElementById('page-personnel').classList.contains('active')) {
+    loadPersonnel();
+  }
 }
 // ─── HELPERS ──────────────────────────────────────────────
 function fmtDate(d) {
