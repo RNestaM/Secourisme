@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V38</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V39</span></div>
     </div>
   </div>
 
@@ -3265,6 +3265,11 @@ async function genererPV() {
     }
     let xml = await zip.file('content.xml').async('string');
 
+    // DEBUG temporaire : voir comment {FormNom} est encodé dans le XML
+    const dbgForm = xml.indexOf('FormNom');
+    if (dbgForm >= 0) console.log('[DEBUG] FormNom dans XML :', JSON.stringify(xml.slice(Math.max(0,dbgForm-60), dbgForm+60)));
+    else console.log('[DEBUG] FormNom non trouvé — marqueur peut-être fragmenté, cherche "Form" :', JSON.stringify(xml.slice(Math.max(0,xml.indexOf('Form')-30), xml.indexOf('Form')+80)));
+
     // ── Données ──
     const date = formation.date_formation;
     const [dy, dm, dd] = date.split('-');
@@ -3322,10 +3327,11 @@ async function genererPV() {
             .replace('{UNITE}',         escXml(pers.unite || ''))
             .replace('{RESULTAT}',      escXml(resultat));
         } else {
-          // Ligne vide : on vide tous les marqueurs
+          // Ligne vide : on vide tous les marqueurs y compris RGBRET
           newRows += templateRow
             .replace(/\{NIGEND\}/g, '').replace(/\{NOM\}/g, '').replace(/\{PRENOM\}/g, '')
             .replace(/\{SEXE\}/g, '').replace(/\{DDN\}/g, '').replace(/\{LIEUNAISSANCE\}/g, '')
+            .replace(/RGBRET/g, '')
             .replace(/\{UNITE\}/g, '').replace(/\{RESULTAT\}/g, '');
         }
       }
