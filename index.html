@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V42</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V43</span></div>
     </div>
   </div>
 
@@ -3265,10 +3265,10 @@ async function genererPV() {
     }
     let xml = await zip.file('content.xml').async('string');
 
-    // DEBUG temporaire : voir comment {RESULTAT} est encodé dans le XML PSC
-    const dbgRes = xml.indexOf('RESULTAT');
-    if (dbgRes >= 0) console.log('[DEBUG] RESULTAT dans XML :', JSON.stringify(xml.slice(Math.max(0,dbgRes-40), dbgRes+60)));
-    else console.log('[DEBUG] RESULTAT non trouvé brut');
+    // DEBUG : vérifier que {RESULTAT} est bien remplacé dans la ligne générée
+    const _dbgResCheck = (row) => {
+      if (row.includes('{RESULTAT}')) console.log('[DEBUG] {RESULTAT} NON remplacé dans la ligne générée — extrait:', JSON.stringify(row.slice(row.indexOf('{RESULTAT}')-20, row.indexOf('{RESULTAT}')+30)));
+    };
 
     // ── Normalisation : LibreOffice fragmente parfois les marqueurs entre spans
     // ex: "{FormNom<span>}</span>" → "{FormNom}"
@@ -3331,6 +3331,7 @@ async function genererPV() {
             .replace('{LIEUNAISSANCE}', escXml(pers.ville_naissance || ''))
             .replace('{UNITE}',         escXml(pers.unite || ''))
             .replace('{RESULTAT}',      escXml(resultat));
+          if (i === 0) _dbgResCheck(newRows);
         } else {
           // Ligne vide : on vide tous les marqueurs y compris RGBRET
           newRows += templateRow
