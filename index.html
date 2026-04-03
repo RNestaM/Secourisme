@@ -686,7 +686,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V61</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V62</span></div>
     </div>
   </div>
 
@@ -3225,25 +3225,25 @@ async function genererPresence() {
   showToast('Génération en cours...', '');
 
   try {
-    // ── pdf-lib chargé dans le <head> ──
-    // pdf-lib expose son API sous window.PDFLib
-    const PDFLibObj = window.PDFLib || window['pdf-lib'];
-    console.log('[DEBUG] PDFLib available:', !!PDFLibObj, 'keys:', PDFLibObj ? Object.keys(PDFLibObj).slice(0,5) : 'none');
-    if (!PDFLibObj) { showToast('pdf-lib non chargé — vérifiez votre connexion', 'error'); return; }
+    // ── pdf-lib : les classes principales sont dans window.PDFLib ──
+    const PDFLibObj = window.PDFLib;
+    console.log('[DEBUG] PDFDocument:', !!PDFLibObj?.PDFDocument, 'typeof:', typeof PDFLibObj?.PDFDocument);
+    if (!PDFLibObj?.PDFDocument) { showToast('pdf-lib non chargé correctement', 'error'); return; }
     const { PDFDocument, rgb, StandardFonts } = PDFLibObj;
 
-    // ── Télécharger le PDF via Supabase JS (gère les headers CORS/auth) ──
-    const { data: tplBlob, error: tplError } = await db.storage
-      .from('pv-templates')
-      .download(templateName + '?t=' + Date.now());
-    if (tplError || !tplBlob) {
+    // ── Télécharger le PDF via fetch avec apikey (contourne CORS Supabase) ──
+    const pdfUrl = `${SB_URL}/storage/v1/object/pv-templates/${templateName}`;
+    const fetchResp = await fetch(pdfUrl, {
+      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+    });
+    if (!fetchResp.ok) {
       showToast(`Template "${templateName}" introuvable. Uploadez-le dans Config → Templates.`, 'error');
       return;
     }
-    const tplData = await tplBlob.arrayBuffer();
+    const tplData = await fetchResp.arrayBuffer();
 
     const pdfBytes = tplData;
-    console.log('[DEBUG] PDFLib:', !!window.PDFLib, 'pdfBytes size:', pdfBytes.byteLength);
+    console.log('[DEBUG] pdfBytes size:', pdfBytes.byteLength, 'PDFDocument:', !!PDFDocument);
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
