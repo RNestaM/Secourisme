@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V70</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V71</span></div>
     </div>
   </div>
 
@@ -1639,7 +1639,7 @@ function renderPersonnel(list) {
   }
   tbody.innerHTML = list.map(p => `
     <tr onclick="openPersonnelModal('${p.id}')">
-      <td class="nigend">${p.nigend}</td>
+      <td class="nigend">${fmtNigend(p.nigend)}</td>
       <td><strong>${p.nom}</strong></td>
       <td>${p.prenom}</td>
       <td>${p.sexe||'—'}</td>
@@ -1985,7 +1985,7 @@ async function loadParticipants(formationId) {
     return `
     <tr data-fp-id="${fp.id}" data-personnel-id="${p.id||''}">
       <td><input type="checkbox" class="part-checkbox" value="${fp.id}" onchange="updateSelectionCount()"></td>
-      <td class="nigend" style="cursor:pointer" onclick="openEditPersonnelInline('${p.id||''}')" title="Modifier">${p.nigend||'—'}</td>
+      <td class="nigend" style="cursor:pointer" onclick="openEditPersonnelInline('${p.id||''}')" title="Modifier">${fmtNigend(p.nigend)||'—'}</td>
       <td style="cursor:pointer" onclick="openEditPersonnelInline('${p.id||''}')" title="Modifier"><strong>${p.nom||'—'}</strong></td>
       <td style="cursor:pointer" onclick="openEditPersonnelInline('${p.id||''}')" title="Modifier">${p.prenom||'—'}</td>
       <td style="text-align:center">${p.sexe||'—'}</td>
@@ -2120,7 +2120,7 @@ async function searchParticipantToAdd() {
     }
     resultsDiv.innerHTML = data.map(p => `
       <div class="search-result-item" onclick="selectParticipant('${p.id}','${(p.nigend||'').replace(/'/g,"\'")}','${p.nom.replace(/'/g,"\'")}','${p.prenom.replace(/'/g,"\'")}','${(p.unite||'').replace(/'/g,"\'")}')">
-        <strong>${p.nigend||'Civil'}</strong> — ${p.nom} ${p.prenom}
+        <strong>${fmtNigend(p.nigend)||'Civil'}</strong> — ${p.nom} ${p.prenom}
         <br><small>${p.unite||''}</small>
       </div>
     `).join('');
@@ -2181,7 +2181,7 @@ function prefillNewPersonnel(p) {
   // Stocker l'id existant
   document.getElementById('new-p-nigend').dataset.existingId = p.id;
   const alert = document.getElementById('new-p-existing-alert');
-  alert.textContent = `⚠️ Agent trouvé en base : ${p.nom} ${p.prenom} (${p.nigend||'civil'})`;
+  alert.textContent = `⚠️ Agent trouvé en base : ${p.nom} ${p.prenom} (${fmtNigend(p.nigend)||'civil'})`;
   alert.style.display = 'block';
 }
 
@@ -2480,7 +2480,7 @@ async function loadFormateurs() {
           ${f.qualification ? '<span style="margin-left:6px;background:#e8f0fe;color:var(--bleu);border-radius:4px;padding:1px 6px;font-size:11px">' + f.qualification + '</span>' : ''}
         </div>
         <div style="font-size:11px;color:#aaa;margin-top:2px">
-          ${f.nigend ? 'NIGEND : ' + f.nigend : ''}
+          ${f.nigend ? 'NIGEND : ' + fmtNigend(f.nigend) : ''}
           ${f.unite ? (f.nigend ? ' · ' : '') + f.unite : ''}
           ${f.date_naissance ? ' · ' + fmtDate(f.date_naissance) : ''}
           ${f.ville_naissance ? ' · ' + f.ville_naissance : ''}
@@ -2922,7 +2922,7 @@ async function importCSV() {
         </tr></thead>
         <tbody>
           ${_importRows.slice(0,15).map(r => `<tr style="border-top:1px solid var(--bordure)">
-            <td style="padding:5px 10px">${r.nigend}</td>
+            <td style="padding:5px 10px">${fmtNigend(r.nigend)}</td>
             <td style="padding:5px 10px">${r.nom}</td>
             <td style="padding:5px 10px">${r.prenom}</td>
             <td style="padding:5px 10px;text-align:center">${r.sexe||'—'}</td>
@@ -3170,7 +3170,7 @@ async function openHistoriqueModal(personnelId, nomComplet) {
       <div>
         <div style="opacity:0.7;font-size:11px;text-transform:uppercase;letter-spacing:1px">Agent</div>
         <div style="font-size:16px;font-weight:700">${agent?.nom||''} ${agent?.prenom||''}</div>
-        <div style="opacity:0.8;font-size:13px">${agent?.nigend||'Civil'} · ${agent?.unite||'—'}</div>
+        <div style="opacity:0.8;font-size:13px">${fmtNigend(agent?.nigend)||'Civil'} · ${agent?.unite||'—'}</div>
       </div>
       <div>
         <div style="opacity:0.7;font-size:11px;text-transform:uppercase;letter-spacing:1px">PSC</div>
@@ -3346,14 +3346,14 @@ async function genererPresence() {
       '{RespNom}':          escXml(resp?.nom || ''),
       '{RespPrenom}':       escXml(resp?.prenom || ''),
       '{RespQualif}':       escXml(formation.type_formation === 'SN1' ? 'F SauveTaGe' : (resp?.qualification || '')),
-      '{RespNIGEND}':       escXml(resp?.nigend || ''),
+      '{RespNIGEND}':       escXml(fmtNigend(resp?.nigend)),
       '{RespDDN}':          escXml(fmtDDN(resp?.date_naissance)),
       '{RespLieuNaissance}':escXml(resp?.ville_naissance || ''),
       '{RespUnite}':        escXml(resp?.unite || ''),
       '{FormNom}':          escXml(form2?.nom || ''),
       '{FormPrenom}':       escXml(form2?.prenom || ''),
       '{FormQualif}':       escXml(form2 ? (formation.type_formation === 'SN1' ? 'F SauveTaGe' : (form2?.qualification || '')) : ''),
-      '{FormNIGEND}':       escXml(form2?.nigend || ''),
+      '{FormNIGEND}':       escXml(fmtNigend(form2?.nigend)),
       '{FormDDN}':          escXml(fmtDDN(form2?.date_naissance)),
       '{FormLieuNaissance}':escXml(form2?.ville_naissance || ''),
       '{FormUnite}':        escXml(form2?.unite || ''),
@@ -3376,7 +3376,7 @@ async function genererPresence() {
           const pers = part.personnel || {};
           const ddn = pers.date_naissance ? fmtDatePV(pers.date_naissance) : '';
           let row = templateRow
-            .replace('{NIGEND}',        escXml(pers.nigend || ''))
+            .replace('{NIGEND}',        escXml(fmtNigend(pers.nigend)))
             .replace('{NOM}',           escXml(pers.nom || ''))
             .replace('{PRENOM}',        escXml(pers.prenom || ''))
             .replace('{DDN}',           escXml(ddn))
@@ -3531,7 +3531,7 @@ async function genererPV() {
           const resultat = p.resultat === 'Validé' ? 'A' : p.resultat === 'Non validé' ? 'I' : '';
           const ddn = pers.date_naissance ? fmtDatePV(pers.date_naissance) : '';
           newRows += templateRow
-            .replace('{NIGEND}',        escXml(pers.nigend || ''))
+            .replace('{NIGEND}',        escXml(fmtNigend(pers.nigend)))
             .replace('{NOM}',           escXml(pers.nom || ''))
             .replace('{PRENOM}',        escXml(pers.prenom || ''))
             .replace('{SEXE}',          escXml(pers.sexe || ''))
@@ -3615,6 +3615,13 @@ function fmtDate(d) {
   if (!d) return '—';
   const [y,m,j] = d.split('-');
   return `${j}/${m}/${y}`;
+}
+
+function fmtNigend(n) {
+  if (!n) return '';
+  const s = String(n).replace(/\s/g, '');
+  if (s.length <= 3) return s;
+  return s.slice(0, 3) + ' ' + s.slice(3);
 }
 
 function validClass(dateStr) {
