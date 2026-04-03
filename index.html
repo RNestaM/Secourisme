@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V71</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V72</span></div>
     </div>
   </div>
 
@@ -820,11 +820,7 @@ tbody td {
     <div class="page" id="page-formation-detail">
       <div class="page-header">
         <button class="btn btn-secondary" onclick="showPage('formations')">← Retour</button>
-        <div style="display:flex;gap:8px">
-        <button class="btn btn-or" onclick="genererPV()">📄 Générer PV</button>
-        <button class="btn btn-secondary" onclick="genererPresence()">📋 Feuille de présence</button>
         <button class="btn btn-primary" onclick="openAddParticipantModal()">+ Ajouter participant(s)</button>
-      </div>
       </div>
       <div class="formation-header-card" id="formation-detail-header"></div>
       <div class="table-wrapper">
@@ -1495,28 +1491,7 @@ async function loadDashboard() {
       <div class="label">Cette année</div>
       <div class="sub">${thisYear}</div>
     </div>
-  `;
-
-  // ── Cards : principales + alertes sur la même ligne ──
-  document.getElementById('dash-cards').innerHTML = `
-    <div class="card card-stat">
-      <div class="value">${nbPersonnel ?? 0}</div>
-      <div class="label">Agents en base</div>
-    </div>
-    <div class="card card-stat">
-      <div class="value">${nbFormations ?? 0}</div>
-      <div class="label">Formations totales</div>
-    </div>
-    <div class="card card-stat">
-      <div class="value">${nbEnCours ?? 0}</div>
-      <div class="label">En cours</div>
-      <div class="sub">À traiter</div>
-    </div>
-    <div class="card card-stat">
-      <div class="value">${nbAnnee ?? 0}</div>
-      <div class="label">Cette année</div>
-      <div class="sub">${thisYear}</div>
-    </div>
+    <div style="width:100%;flex-basis:100%;height:0;margin:0"></div>
     <div class="card card-stat" style="border-top:3px solid var(--bleu)">
       <div class="value" style="color:var(--bleu)">${pscExpireAnnee.length}</div>
       <div class="label">PSC expirent en ${thisYear}</div>
@@ -1527,7 +1502,6 @@ async function loadDashboard() {
       <div class="label">SN1 expirent en ${thisYear}</div>
       <div class="sub">À renouveler avant le 31/12</div>
     </div>
-
   `;
 
   // ── Listes urgents/perdus (sans cards redondantes) ──
@@ -1825,13 +1799,30 @@ function renderFormations(list) {
       <td>${f.responsable ? f.responsable.prenom+' '+f.responsable.nom : '—'}</td>
       <td>${f.numero_cri||'—'}</td>
       <td style="text-align:center">${nbPart}</td>
-      <td><span class="badge-statut ${statutClass(f.statut)}">${f.statut}</span></td>
+      <td onclick="event.stopPropagation()">
+        <select class="statut-select" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--bordure);border-radius:6px;font-family:'Barlow',sans-serif;outline:none;cursor:pointer;background:white"
+          onchange="updateStatutFormation('${f.id}', this.value, this)">
+          ${['A ouvrir','Ouverte','Admin - PreForm - OK','A la signature','Admin - PostForm - OK','Effectuée','Clôturée','Annulée']
+            .map(s => `<option value="${s}" ${s === f.statut ? 'selected' : ''}>${s}</option>`).join('')}
+        </select>
+      </td>
       <td>
         <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openFormationModal('${f.id}')">✏️</button>
         ${currentFormateur?.is_admin ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteFormation('${f.id}')">🗑</button>` : ''}
       </td>
     </tr>`;
   }).join('');
+}
+
+async function updateStatutFormation(id, statut, selectEl) {
+  selectEl.disabled = true;
+  const { error } = await db.from('formations').update({ statut }).eq('id', id);
+  selectEl.disabled = false;
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  // Mettre à jour en mémoire
+  const f = allFormations.find(x => x.id === id);
+  if (f) f.statut = statut;
+  showToast('Statut mis à jour ✅', 'success');
 }
 
 async function openFormationModal(id = null) {
@@ -1957,6 +1948,9 @@ async function openFormationDetail(id) {
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
       <button class="btn" style="background:rgba(255,255,255,0.15);color:white" onclick="openFormationModal('${f.id}')">✏️ Modifier</button>
       ${peutCloturer ? `<button class="btn" style="background:#1a7a4a;color:white;font-weight:700" onclick="cloturerFormation('${f.id}')">🔒 Clôturer</button>` : '<span style="opacity:0.6;font-size:13px;padding-top:10px">Formation clôturée</span>'}
+      <div style="width:100%;height:0"></div>
+      <button class="btn btn-or" onclick="genererPV()">📄 Générer PV</button>
+      <button class="btn btn-secondary" onclick="genererPresence()">📋 Feuille de présence</button>
     </div>
   `;
 
@@ -2400,6 +2394,21 @@ async function loadStats() {
     const totTotal = yearRows.reduce((s,r) => s + r.total, 0);
     const totSessions = yearRows.reduce((s,r) => s + (aggSessions[`${year}__${r.type}__${r.format}`] || 0), 0);
 
+    const rowsHtml = yearRows.map(r => {
+      const nb = aggSessions[year+'__'+r.type+'__'+r.format] || 0;
+      const taux = r.total > 0 ? Math.round(r.valides/r.total*100)+'%' : '—';
+      return '<tr>' +
+        '<td><strong>'+r.type+'</strong></td>' +
+        '<td><span class="badge-type type-'+r.type.toLowerCase()+'-'+r.format.toLowerCase()+'">'+r.format+'</span></td>' +
+        '<td style="text-align:center;font-weight:600">'+(nb||'—')+'</td>' +
+        '<td style="text-align:center">'+r.total+'</td>' +
+        '<td style="text-align:center">'+r.agents.size+'</td>' +
+        '<td style="color:var(--vert);font-weight:600;text-align:center">'+r.valides+'</td>' +
+        '<td style="color:var(--rouge);text-align:center">'+(r.total-r.valides)+'</td>' +
+        '<td style="text-align:center">'+taux+'</td>' +
+        '</tr>';
+    }).join('');
+
     return `
     <div class="table-wrapper" style="margin-bottom:24px">
       <div class="table-toolbar">
@@ -2422,20 +2431,7 @@ async function loadStats() {
           </tr>
         </thead>
         <tbody>
-          \${yearRows.map(r => {
-            const nb = aggSessions[year+'__'+r.type+'__'+r.format] || 0;
-            const taux = r.total > 0 ? Math.round(r.valides/r.total*100)+'%' : '—';
-            return '<tr>' +
-              '<td><strong>'+r.type+'</strong></td>' +
-              '<td><span class="badge-type type-'+r.type.toLowerCase()+'-'+r.format.toLowerCase()+'">'+r.format+'</span></td>' +
-              '<td style="text-align:center;font-weight:600">'+(nb||'—')+'</td>' +
-              '<td style="text-align:center">'+r.total+'</td>' +
-              '<td style="text-align:center">'+r.agents.size+'</td>' +
-              '<td style="color:var(--vert);font-weight:600;text-align:center">'+r.valides+'</td>' +
-              '<td style="color:var(--rouge);text-align:center">'+(r.total-r.valides)+'</td>' +
-              '<td style="text-align:center">'+taux+'</td>' +
-              '</tr>';
-          }).join('')}
+          ${rowsHtml}
           <tr style="background:var(--gris-clair);font-weight:700;border-top:2px solid var(--bordure)">
             <td colspan="2">Total ${year}</td>
             <td style="text-align:center">${totSessions||'—'}</td>
