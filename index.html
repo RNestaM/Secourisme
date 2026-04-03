@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V53</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V54</span></div>
     </div>
   </div>
 
@@ -3238,7 +3238,7 @@ async function genererPresence() {
     // ── Télécharger le PDF template depuis Supabase ──
     const { data: tplData, error: tplError } = await db.storage
       .from('pv-templates')
-      .download(templateName, { transform: {} });
+      .download(templateName);
     if (tplError || !tplData) {
       showToast(`Template "${templateName}" introuvable. Uploadez-le dans Config → Templates.`, 'error');
       return;
