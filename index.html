@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V65</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V66</span></div>
     </div>
   </div>
 
@@ -913,6 +913,26 @@ tbody td {
           <div class="form-group">
             <label>Prénom *</label>
             <input type="text" id="new-formateur-prenom" class="search-input" style="width:100%" placeholder="Prénom">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>NIGEND</label>
+            <input type="text" id="new-formateur-nigend" class="search-input" style="width:100%" placeholder="NIGEND">
+          </div>
+          <div class="form-group">
+            <label>Date de naissance</label>
+            <input type="date" id="new-formateur-ddn" class="search-input" style="width:100%">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Lieu de naissance</label>
+            <input type="text" id="new-formateur-lieu" class="search-input" style="width:100%" placeholder="Ville (Dept)">
+          </div>
+          <div class="form-group">
+            <label>Unité</label>
+            <input type="text" id="new-formateur-unite" class="search-input" style="width:100%" placeholder="COB XXXXX">
           </div>
         </div>
         <div class="form-row">
@@ -2459,34 +2479,59 @@ async function loadFormateurs() {
           ${f.user_id ? '<span style="margin-left:6px;color:var(--vert);font-size:11px">● Compte actif</span>' : ''}
           ${f.qualification ? '<span style="margin-left:6px;background:#e8f0fe;color:var(--bleu);border-radius:4px;padding:1px 6px;font-size:11px">' + f.qualification + '</span>' : ''}
         </div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px">
+          ${f.nigend ? 'NIGEND : ' + f.nigend : ''}
+          ${f.unite ? (f.nigend ? ' · ' : '') + f.unite : ''}
+          ${f.date_naissance ? ' · ' + fmtDate(f.date_naissance) : ''}
+          ${f.ville_naissance ? ' · ' + f.ville_naissance : ''}
+        </div>
       </div>
       <span style="font-size:12px;color:${f.actif?'var(--vert)':'var(--rouge)'}">${f.actif?'Actif':'Inactif'}</span>
-      <button class="btn btn-secondary btn-sm" onclick="editFormateur('${f.id}','${f.qualification||''}')">✏️</button>
+      <button class="btn btn-secondary btn-sm" onclick="editFormateur('${f.id}')">✏️</button>
       ${!f.is_admin ? `<button class="btn btn-secondary btn-sm" onclick="toggleFormateur('${f.id}',${!f.actif})">${f.actif?'Désactiver':'Activer'}</button>` : ''}
     </div>
   `).join('') || '<p style="color:#999;font-size:13px">Aucun formateur</p>';
 }
 
 
-async function editFormateur(id, currentQualif) {
+async function editFormateur(id) {
+  const f = allFormateurs.find(x => x.id === id);
+  if (!f) return;
   const qualifs = ['', 'FPSE', 'FPSC', 'FoSST', 'FF+FPSC', 'FF+FPSE', 'FoFoSST', 'F SauveTaGe'];
   const options = qualifs.map(q =>
-    `<option value="${q}" ${q === currentQualif ? 'selected' : ''}>${q || '— Aucune —'}</option>`
+    `<option value="${q}" ${q === (f.qualification||'') ? 'selected' : ''}>${q || '— Aucune —'}</option>`
   ).join('');
 
-  // Créer un mini modal inline
   const div = document.createElement('div');
   div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
   div.innerHTML = `
-    <div style="background:white;border-radius:12px;padding:24px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
-      <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;color:var(--bleu);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px">Modifier qualification</h3>
-      <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#666;display:block;margin-bottom:6px">Qualification</label>
-      <select id="edit-qualif-select" style="width:100%;padding:10px;border:1.5px solid var(--bordure);border-radius:8px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;margin-bottom:16px">
+    <div style="background:white;border-radius:12px;padding:24px;width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;color:var(--bleu);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px">Modifier formateur</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#666;display:block;margin-bottom:4px">NIGEND</label>
+          <input id="ef-nigend" value="${f.nigend||''}" style="width:100%;padding:8px 10px;border:1.5px solid var(--bordure);border-radius:7px;font-family:'Barlow',sans-serif;font-size:13px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#666;display:block;margin-bottom:4px">Date de naissance</label>
+          <input id="ef-ddn" type="date" value="${f.date_naissance||''}" style="width:100%;padding:8px 10px;border:1.5px solid var(--bordure);border-radius:7px;font-family:'Barlow',sans-serif;font-size:13px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#666;display:block;margin-bottom:4px">Lieu de naissance</label>
+          <input id="ef-lieu" value="${f.ville_naissance||''}" placeholder="Ville (Dept)" style="width:100%;padding:8px 10px;border:1.5px solid var(--bordure);border-radius:7px;font-family:'Barlow',sans-serif;font-size:13px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#666;display:block;margin-bottom:4px">Unité</label>
+          <input id="ef-unite" value="${f.unite||''}" placeholder="COB XXXXX" style="width:100%;padding:8px 10px;border:1.5px solid var(--bordure);border-radius:7px;font-family:'Barlow',sans-serif;font-size:13px;outline:none">
+        </div>
+      </div>
+      <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#666;display:block;margin-bottom:4px">Qualification</label>
+      <select id="ef-qualif" style="width:100%;padding:10px;border:1.5px solid var(--bordure);border-radius:8px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;margin-bottom:16px">
         ${options}
       </select>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:8px 16px;border:none;border-radius:7px;background:var(--gris-clair);cursor:pointer;font-family:'Barlow',sans-serif">Annuler</button>
-        <button onclick="saveFormateurQualif('${id}',document.getElementById('edit-qualif-select').value,this)" style="padding:8px 16px;border:none;border-radius:7px;background:var(--bleu);color:white;cursor:pointer;font-family:'Barlow',sans-serif;font-weight:600">Enregistrer</button>
+        <button onclick="saveFormateur('${id}',this)" style="padding:8px 16px;border:none;border-radius:7px;background:var(--bleu);color:white;cursor:pointer;font-family:'Barlow',sans-serif;font-weight:600">Enregistrer</button>
       </div>
     </div>
   `;
@@ -2494,13 +2539,20 @@ async function editFormateur(id, currentQualif) {
   div.addEventListener('click', e => { if (e.target === div) div.remove(); });
 }
 
-async function saveFormateurQualif(id, qualif, btn) {
+async function saveFormateur(id, btn) {
   btn.textContent = '...';
   btn.disabled = true;
-  const { error } = await db.from('formateurs').update({ qualification: qualif || null }).eq('id', id);
+  const payload = {
+    qualification:   document.getElementById('ef-qualif').value || null,
+    nigend:          document.getElementById('ef-nigend').value.trim() || null,
+    date_naissance:  document.getElementById('ef-ddn').value || null,
+    ville_naissance: document.getElementById('ef-lieu').value.trim() || null,
+    unite:           document.getElementById('ef-unite').value.trim() || null,
+  };
+  const { error } = await db.from('formateurs').update(payload).eq('id', id);
   btn.closest('div[style*="fixed"]').remove();
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
-  showToast('Qualification mise à jour ✅', 'success');
+  showToast('Formateur mis à jour ✅', 'success');
   loadFormateurs();
 }
 async function toggleFormateur(id, actif) {
@@ -2527,17 +2579,25 @@ async function creerFormateur() {
   }
 
   const qualif = document.getElementById('new-formateur-qualif')?.value || null;
+  const nigend = document.getElementById('new-formateur-nigend')?.value.trim() || null;
+  const ddn = document.getElementById('new-formateur-ddn')?.value || null;
+  const lieu = document.getElementById('new-formateur-lieu')?.value.trim() || null;
+  const unite = document.getElementById('new-formateur-unite')?.value.trim() || null;
   const { error: e2 } = await db.from('formateurs').insert({
     user_id: userId,
     nom, prenom,
     email: email || null,
     qualification: qualif || null,
+    nigend, date_naissance: ddn, ville_naissance: lieu, unite,
     is_admin: false,
     actif: true
   });
   if (e2) { showToast('Erreur : ' + e2.message, 'error'); return; }
   showToast(email ? 'Formateur créé avec accès au site !' : 'Formateur ajouté (sans accès au site)', 'success');
-  ['new-formateur-nom','new-formateur-prenom','new-formateur-email','new-formateur-pwd'].forEach(id => document.getElementById(id).value = '');
+  ['new-formateur-nom','new-formateur-prenom','new-formateur-email','new-formateur-pwd',
+   'new-formateur-nigend','new-formateur-ddn','new-formateur-lieu','new-formateur-unite'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
   loadFormateurs();
 }
 
@@ -3213,7 +3273,7 @@ async function genererPresence() {
 
   const { data: formation } = await db
     .from('formations')
-    .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom, qualification)')
+    .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom, qualification, nigend, date_naissance, ville_naissance, unite)')
     .eq('id', currentFormationId)
     .single();
   if (!formation) { showToast('Formation introuvable', 'error'); return; }
@@ -3254,22 +3314,47 @@ async function genererPresence() {
     const cri = formation.numero_cri || '';
     const resp = formation.responsable;
     const lieuVille = lieu.split('(')[0].trim().toUpperCase();
-    const lieuDept = lieu.match(/(\((\d+)\))/)?.[1] || '';
+    const lieuDept = lieu.match(/\((\d+)\)/)?.[1] || '';
     const dateFormation = `${dd}/${dm}/${dy}`;
     const typeFormat = `${formation.type_formation} ${format}`;
+    const nbPrevus = participants?.length || 0;
+
+    // Formateur supplémentaire — on cherche dans formateurs_ids (hors responsable)
+    const formateursIds = formation.formateurs_ids || [];
+    const autreFormateurId = formateursIds.find(id => id !== formation.responsable_id);
+    let form2 = null;
+    if (autreFormateurId) {
+      const { data: f2 } = await db.from('formateurs')
+        .select('nom, prenom, qualification, nigend, date_naissance, ville_naissance, unite')
+        .eq('id', autreFormateurId).single();
+      form2 = f2;
+    }
+
+    const fmtDDN = (d) => d ? fmtDate(d) : '';
 
     // ── Marqueurs simples ──
     const markers = {
-      '{NumCRI}':        escXml(String(cri)),
-      '{DateFormation}': escXml(dateFormation),
-      '{LieuVille}':     escXml(lieuVille),
-      '{LieuDept}':      escXml(lieuDept),
-      '{TypeFormat}':    escXml(typeFormat),
-      '{Moment}':        escXml(formation.moment || ''),
-      '{RespNom}':       escXml(resp?.nom || ''),
-      '{RespPrenom}':    escXml(resp?.prenom || ''),
-      '{FormNom}':       escXml(formation.formateur_nom || ''),
-      '{FormPrenom}':    escXml(formation.formateur_prenom || ''),
+      '{NumCRI}':           escXml(String(cri)),
+      '{DateFormation}':    escXml(dateFormation),
+      '{LieuVille}':        escXml(lieuVille),
+      '{LieuDept}':         escXml(lieuDept),
+      '{TypeFormat}':       escXml(typeFormat),
+      '{Moment}':           escXml(formation.moment || ''),
+      '{NbPrevus}':         String(nbPrevus),
+      '{RespNom}':          escXml(resp?.nom || ''),
+      '{RespPrenom}':       escXml(resp?.prenom || ''),
+      '{RespQualif}':       escXml(resp?.qualification || ''),
+      '{RespNIGEND}':       escXml(resp?.nigend || ''),
+      '{RespDDN}':          escXml(fmtDDN(resp?.date_naissance)),
+      '{RespLieuNaissance}':escXml(resp?.ville_naissance || ''),
+      '{RespUnite}':        escXml(resp?.unite || ''),
+      '{FormNom}':          escXml(form2?.nom || ''),
+      '{FormPrenom}':       escXml(form2?.prenom || ''),
+      '{FormQualif}':       escXml(form2?.qualification || ''),
+      '{FormNIGEND}':       escXml(form2?.nigend || ''),
+      '{FormDDN}':          escXml(fmtDDN(form2?.date_naissance)),
+      '{FormLieuNaissance}':escXml(form2?.ville_naissance || ''),
+      '{FormUnite}':        escXml(form2?.unite || ''),
     };
     for (const [marker, value] of Object.entries(markers)) {
       xml = xml.replaceAll(marker, value);
