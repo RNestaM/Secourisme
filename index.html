@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V49</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V50</span></div>
     </div>
   </div>
 
@@ -790,7 +790,7 @@ tbody td {
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <select id="filter-type" onchange="filterFormations()" style="padding:8px 12px;border:1.5px solid var(--bordure);border-radius:8px;font-size:13px;outline:none">
               <option value="">Tous types</option>
-              <option>PSC</option><option>PSC_FAM</option><option>SN1</option>
+              <option>PSC</option><option>SN1</option>
             </select>
             <select id="filter-statut" onchange="filterFormations()" style="padding:8px 12px;border:1.5px solid var(--bordure);border-radius:8px;font-size:13px;outline:none">
               <option value="">Tous statuts</option>
@@ -947,7 +947,7 @@ tbody td {
         <h3>📄 Templates PV (ODT)</h3>
         <p style="font-size:13px;color:#888;margin-bottom:12px">
           Uploadez ici vos modèles ODT officiels. Le site les utilise pour générer les PV.<br>
-          Nommage : <code>SN1_FC.odt</code>, <code>SN1_FI.odt</code>, <code>PSC_FC.odt</code>, <code>PSC_FI.odt</code>, <code>PSC_FAM_FC.odt</code>, <code>PSC_FAM_FI.odt</code>
+          Nommage : <code>SN1_FC.odt</code>, <code>SN1_FI.odt</code>, <code>PSC_FC.odt</code>, <code>PSC_FI.odt</code>
         </p>
         <div id="templates-list" style="margin-bottom:16px"></div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -956,8 +956,6 @@ tbody td {
             <option value="SN1_FI">SN1 — FI (Formation Initiale)</option>
             <option value="PSC_FC">PSC — FC (Formation Continue)</option>
             <option value="PSC_FI">PSC — FI (Formation Initiale)</option>
-            <option value="PSC_FAM_FC">PSC Famille — FC</option>
-            <option value="PSC_FAM_FI">PSC Famille — FI</option>
           </select>
           <input type="file" id="template-upload-file" accept=".odt" style="font-size:13px">
           <button class="btn btn-primary" onclick="uploadTemplate()">⬆️ Uploader</button>
@@ -1007,7 +1005,6 @@ tbody td {
           <label>Type *</label>
           <select id="f-type">
             <option value="PSC">PSC</option>
-            <option value="PSC_FAM">PSC Famille</option>
             <option value="SN1">SN1</option>
           </select>
         </div>
@@ -3054,7 +3051,7 @@ async function openHistoriqueModal(personnelId, nomComplet) {
 
   const body = document.getElementById('historique-agent-body');
   const histo = data || [];
-  const psc = histo.filter(h => h.type_formation === 'PSC' || h.type_formation === 'PSC_FAM');
+  const psc = histo.filter(h => h.type_formation === 'PSC');
   const sn1 = histo.filter(h => h.type_formation === 'SN1');
 
   // Calculs résumé
