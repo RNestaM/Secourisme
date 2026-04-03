@@ -7,6 +7,7 @@
 <title>Formation Secourisme</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap');
 
@@ -685,7 +686,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V55</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V57</span></div>
     </div>
   </div>
 
@@ -3224,32 +3225,14 @@ async function genererPresence() {
   showToast('Génération en cours...', '');
 
   try {
-    // ── Charger pdf-lib ──
-    if (!window.PDFLib) {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
-        s.onload = resolve; s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
+    // ── pdf-lib chargé dans le <head> ──
     const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
 
-    // ── Télécharger le PDF template via URL signée (contourne CORS Supabase) ──
-    const { data: signedData, error: signedError } = await db.storage
+    // ── Télécharger le PDF template via Supabase JS (gère l'auth) ──
+    const { data: tplData, error: tplError } = await db.storage
       .from('pv-templates')
-      .createSignedUrl(templateName, 60);
-    if (signedError || !signedData?.signedUrl) {
-      showToast(`Template "${templateName}" introuvable. Uploadez-le dans Config → Templates.`, 'error');
-      return;
-    }
-    const fetchResp = await fetch(signedData.signedUrl);
-    if (!fetchResp.ok) {
-      showToast(`Erreur chargement template : ${fetchResp.status}`, 'error');
-      return;
-    }
-    const tplData = await fetchResp.blob();
-    if (!tplData) {
+      .download(templateName);
+    if (tplError || !tplData) {
       showToast(`Template "${templateName}" introuvable. Uploadez-le dans Config → Templates.`, 'error');
       return;
     }
