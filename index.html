@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V69</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V70</span></div>
     </div>
   </div>
 
@@ -3345,14 +3345,14 @@ async function genererPresence() {
       '{NbPrevus}':         String(nbPrevus),
       '{RespNom}':          escXml(resp?.nom || ''),
       '{RespPrenom}':       escXml(resp?.prenom || ''),
-      '{RespQualif}':       escXml(resp?.qualification || ''),
+      '{RespQualif}':       escXml(formation.type_formation === 'SN1' ? 'F SauveTaGe' : (resp?.qualification || '')),
       '{RespNIGEND}':       escXml(resp?.nigend || ''),
       '{RespDDN}':          escXml(fmtDDN(resp?.date_naissance)),
       '{RespLieuNaissance}':escXml(resp?.ville_naissance || ''),
       '{RespUnite}':        escXml(resp?.unite || ''),
       '{FormNom}':          escXml(form2?.nom || ''),
       '{FormPrenom}':       escXml(form2?.prenom || ''),
-      '{FormQualif}':       escXml(form2?.qualification || ''),
+      '{FormQualif}':       escXml(form2 ? (formation.type_formation === 'SN1' ? 'F SauveTaGe' : (form2?.qualification || '')) : ''),
       '{FormNIGEND}':       escXml(form2?.nigend || ''),
       '{FormDDN}':          escXml(fmtDDN(form2?.date_naissance)),
       '{FormLieuNaissance}':escXml(form2?.ville_naissance || ''),
