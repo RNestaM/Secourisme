@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V50</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V52</span></div>
     </div>
   </div>
 
@@ -822,6 +822,7 @@ tbody td {
         <button class="btn btn-secondary" onclick="showPage('formations')">← Retour</button>
         <div style="display:flex;gap:8px">
         <button class="btn btn-or" onclick="genererPV()">📄 Générer PV</button>
+        <button class="btn btn-secondary" onclick="genererPresence()">📋 Feuille de présence</button>
         <button class="btn btn-primary" onclick="openAddParticipantModal()">+ Ajouter participant(s)</button>
       </div>
       </div>
@@ -947,7 +948,7 @@ tbody td {
         <h3>📄 Templates PV (ODT)</h3>
         <p style="font-size:13px;color:#888;margin-bottom:12px">
           Uploadez ici vos modèles ODT officiels. Le site les utilise pour générer les PV.<br>
-          Nommage : <code>SN1_FC.odt</code>, <code>SN1_FI.odt</code>, <code>PSC_FC.odt</code>, <code>PSC_FI.odt</code>
+          Nommage : <code>SN1_FC.odt</code>, <code>SN1_FI.odt</code>, <code>PSC_FC.odt</code>, <code>PSC_FI.odt</code>, <code>PRESENCE_FC.pdf</code>, <code>PRESENCE_FI.pdf</code>
         </p>
         <div id="templates-list" style="margin-bottom:16px"></div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -956,8 +957,10 @@ tbody td {
             <option value="SN1_FI">SN1 — FI (Formation Initiale)</option>
             <option value="PSC_FC">PSC — FC (Formation Continue)</option>
             <option value="PSC_FI">PSC — FI (Formation Initiale)</option>
+            <option value="PRESENCE_FC">Feuille de présence — FC (.pdf)</option>
+            <option value="PRESENCE_FI">Feuille de présence — FI (.pdf)</option>
           </select>
-          <input type="file" id="template-upload-file" accept=".odt" style="font-size:13px">
+          <input type="file" id="template-upload-file" accept=".odt,.pdf" style="font-size:13px">
           <button class="btn btn-primary" onclick="uploadTemplate()">⬆️ Uploader</button>
         </div>
         <p style="font-size:11px;color:#aaa;margin-top:8px">
@@ -3198,6 +3201,143 @@ function fmtDateShort(dateStr) {
   return `${d}/${m}`;
 }
 
+// ─── GÉNÉRATION FEUILLE DE PRÉSENCE (PDF) ────────────────
+async function genererPresence() {
+  if (!currentFormationId) return;
+
+  const { data: formation } = await db
+    .from('formations')
+    .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom, qualification)')
+    .eq('id', currentFormationId)
+    .single();
+  if (!formation) { showToast('Formation introuvable', 'error'); return; }
+
+  const { data: participants } = await db
+    .from('formation_participants')
+    .select('*, personnel(nigend, nom, prenom, date_naissance, ville_naissance, unite)')
+    .eq('formation_id', currentFormationId)
+    .order('created_at');
+
+  const format = formation.format; // FI ou FC
+  const templateName = `PRESENCE_${format}.pdf`;
+
+  showToast('Génération en cours...', '');
+
+  try {
+    // ── Charger pdf-lib ──
+    if (!window.PDFLib) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+
+    // ── Télécharger le PDF template depuis Supabase ──
+    const { data: tplData, error: tplError } = await db.storage
+      .from('pv-templates')
+      .download(templateName + '?t=' + Date.now());
+    if (tplError || !tplData) {
+      showToast(`Template "${templateName}" introuvable. Uploadez-le dans Config → Templates.`, 'error');
+      return;
+    }
+
+    const pdfBytes = await tplData.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const pages = pdfDoc.getPages();
+    const p1 = pages[0]; // recto
+    const p2 = pages[1]; // verso
+    const h = p1.getHeight(); // 595 (A4 paysage)
+
+    // ── Helpers ──
+    // PDF origin = bas-gauche, pdfplumber origin = haut-gauche → y_pdf = h - y_plumber
+    const y = (yTop) => h - yTop;
+    const draw = (page, text, x, yTop, size=8, bold=false, color=rgb(0,0,0)) => {
+      page.drawText(String(text || ''), {
+        x, y: y(yTop), size, font: bold ? fontB : font, color,
+        maxWidth: 200
+      });
+    };
+
+    // ── Données ──
+    const date = formation.date_formation;
+    const [dy, dm, dd] = date.split('-');
+    const dateStr = `${dd}/${dm}/${dy}`;
+    const lieu = formation.lieu || '';
+    const lieuVille = lieu.split('(')[0].trim();
+    const lieuDept = lieu.match(/\((\d+)\)/)?.[1] || '';
+    const cri = formation.numero_cri || '';
+    const resp = formation.responsable;
+    const respNom = resp ? `${resp.prenom} ${resp.nom}` : '';
+    const formNom = formation.formateur_nom ? `${formation.formateur_prenom || ''} ${formation.formateur_nom}` : '';
+    const typeFormat = `${formation.type_formation} ${format}`;
+    const moment = formation.moment || '';
+
+    // ── PAGE 1 : recto ──
+    // {{Pres}} = combo type/format/date/moment → x=304, y_top≈269-325 (texte vertical)
+    // Le PDF est en mode paysage avec texte vertical — on écrit horizontalement à la place
+    // Zone centrale du recto
+    draw(p1, `${typeFormat} — ${dateStr} — ${moment}`, 290, 265, 9, true);
+    // N° PV : "PV n°" est à x=449, y=266-304 et "13348/" à x=359, y=127-223 et "/2026" x=359 y=337-415
+    // On remplace le numéro CRI entre "13348/" et "/2026"
+    draw(p1, cri, 359, 282, 9, true);
+    // Formateurs (zone bas du recto, sous la checklist)
+    draw(p1, `Resp. : ${respNom}`, 64, 480, 7);
+    if (formNom) draw(p1, `Form. : ${formNom}`, 64, 490, 7);
+
+    // ── PAGE 2 : verso ──
+    // {{Pres}} → x=400, y_top≈63
+    draw(p2, `${typeFormat} — ${dateStr} — ${moment}`, 310, 63, 8, true);
+    // Formateurs en bas
+    draw(p2, `Formateur(s) : ${respNom}${formNom ? ' / ' + formNom : ''}`, 60, 410, 7);
+
+    // Lignes participants — coordonnées Y des 10 lignes (depuis pdfplumber)
+    const rowYs = [110, 140, 169, 199, 229, 259, 288, 318, 348, 378]; // top y de chaque ligne
+
+    // Colonnes X (depuis pdfplumber) : Num=62, NIGEND=91, NOM=140, PRENOM=240, DDN=370, LIEU=435, UNITE=580
+    const cols = {
+      nigend:  92,
+      nom:    135,
+      prenom: 240,
+      ddn:    365,
+      lieu:   435,
+      unite:  568,
+    };
+
+    for (let i = 0; i < 10; i++) {
+      const rowY = rowYs[i] + 6; // +6 pour centrer dans la ligne
+      const p = participants?.[i];
+      if (p) {
+        const pers = p.personnel || {};
+        const ddn = pers.date_naissance ? fmtDatePV(pers.date_naissance) : '';
+        draw(p2, pers.nigend || '', cols.nigend, rowY, 7);
+        draw(p2, pers.nom || '', cols.nom, rowY, 7);
+        draw(p2, pers.prenom || '', cols.prenom, rowY, 7);
+        draw(p2, ddn, cols.ddn, rowY, 7);
+        draw(p2, pers.ville_naissance || '', cols.lieu, rowY, 7);
+        draw(p2, pers.unite || '', cols.unite, rowY, 7);
+      }
+    }
+
+    // ── Télécharger ──
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], { type: 'application/pdf' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `PRESENCE_${formation.type_formation}_${format}_${dateStr.replace(/\//g,'-')}.pdf`;
+    a.click();
+    showToast('Feuille de présence générée ✅', 'success');
+
+  } catch(e) {
+    console.error('Erreur génération présence:', e);
+    showToast('Erreur : ' + e.message, 'error');
+  }
+}
+
 async function genererPV() {
   if (!currentFormationId) return;
 
@@ -3378,9 +3518,11 @@ async function loadTemplatesList() {
 async function uploadTemplate() {
   const file = document.getElementById('template-upload-file').files[0];
   const type = document.getElementById('template-type-select').value;
-  if (!file) { showToast('Sélectionnez un fichier ODT', 'error'); return; }
+  if (!file) { showToast('Sélectionnez un fichier', 'error'); return; }
 
-  const filename = type + '.odt';
+  // Les feuilles de présence sont des PDF, le reste des ODT
+  const ext = type.startsWith('PRESENCE_') ? '.pdf' : '.odt';
+  const filename = type + ext;
   const { error } = await db.storage.from('pv-templates').upload(filename, file, { upsert: true });
   if (error) { showToast('Erreur upload : ' + error.message, 'error'); return; }
   showToast(`Template ${filename} uploadé ✅`, 'success');
