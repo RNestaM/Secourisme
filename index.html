@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V47</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V49</span></div>
     </div>
   </div>
 
@@ -3265,19 +3265,13 @@ async function genererPV() {
     }
     let xml = await zip.file('content.xml').async('string');
 
-    // DEBUG : voir le XML exact autour de RESULTAT après normalisation
-    const _preNorm = xml.indexOf('RESULTAT');
-    if (_preNorm >= 0) console.log('[DEBUG] RESULTAT avant normalisation:', JSON.stringify(xml.slice(Math.max(0,_preNorm-20), _preNorm+80)));
-
-    // ── Normalisation : LibreOffice fragmente parfois les marqueurs entre spans ou paragraphes
+    // ── Normalisation : LibreOffice fragmente parfois les marqueurs
     // Forme 1 : "{FormNom<span>}</span>"
     xml = xml.replace(/(\{[A-Za-z]+)<text:span[^>]*>(\})<\/text:span>/g, '$1$2');
-    // Forme 2 : "{RESULTAT" en fin de paragraphe, "}" au début du paragraphe suivant (retour à la ligne dans la cellule)
+    // Forme 2 : "{RESULTAT" fin de §, "}" début du § suivant
     xml = xml.replace(/(\{[A-Za-z]+)<\/text:p>\s*<text:p[^>]*>(\})/g, '$1$2');
-
-    // DEBUG : après normalisation
-    const _postNorm = xml.indexOf('RESULTAT');
-    if (_postNorm >= 0) console.log('[DEBUG] RESULTAT après normalisation:', JSON.stringify(xml.slice(Math.max(0,_postNorm-20), _postNorm+80)));
+    // Forme 3 : espace parasite après le marqueur "{RESULTAT} " → "{RESULTAT}"
+    xml = xml.replace(/(\{[A-Za-z]+\})[ \t]+(<\/text:p>)/g, '$1$2');
 
     // ── Données ──
     const date = formation.date_formation;
