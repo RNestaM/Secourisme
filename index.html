@@ -686,7 +686,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V60</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V61</span></div>
     </div>
   </div>
 
@@ -3226,7 +3226,11 @@ async function genererPresence() {
 
   try {
     // ── pdf-lib chargé dans le <head> ──
-    const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+    // pdf-lib expose son API sous window.PDFLib
+    const PDFLibObj = window.PDFLib || window['pdf-lib'];
+    console.log('[DEBUG] PDFLib available:', !!PDFLibObj, 'keys:', PDFLibObj ? Object.keys(PDFLibObj).slice(0,5) : 'none');
+    if (!PDFLibObj) { showToast('pdf-lib non chargé — vérifiez votre connexion', 'error'); return; }
+    const { PDFDocument, rgb, StandardFonts } = PDFLibObj;
 
     // ── Télécharger le PDF via Supabase JS (gère les headers CORS/auth) ──
     const { data: tplBlob, error: tplError } = await db.storage
