@@ -685,7 +685,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V54</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V55</span></div>
     </div>
   </div>
 
@@ -3235,11 +3235,21 @@ async function genererPresence() {
     }
     const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
 
-    // ── Télécharger le PDF template depuis Supabase ──
-    const { data: tplData, error: tplError } = await db.storage
+    // ── Télécharger le PDF template via URL signée (contourne CORS Supabase) ──
+    const { data: signedData, error: signedError } = await db.storage
       .from('pv-templates')
-      .download(templateName);
-    if (tplError || !tplData) {
+      .createSignedUrl(templateName, 60);
+    if (signedError || !signedData?.signedUrl) {
+      showToast(`Template "${templateName}" introuvable. Uploadez-le dans Config → Templates.`, 'error');
+      return;
+    }
+    const fetchResp = await fetch(signedData.signedUrl);
+    if (!fetchResp.ok) {
+      showToast(`Erreur chargement template : ${fetchResp.status}`, 'error');
+      return;
+    }
+    const tplData = await fetchResp.blob();
+    if (!tplData) {
       showToast(`Template "${templateName}" introuvable. Uploadez-le dans Config → Templates.`, 'error');
       return;
     }
