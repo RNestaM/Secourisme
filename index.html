@@ -686,7 +686,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V57</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V58</span></div>
     </div>
   </div>
 
@@ -3228,16 +3228,16 @@ async function genererPresence() {
     // ── pdf-lib chargé dans le <head> ──
     const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
 
-    // ── Télécharger le PDF template via Supabase JS (gère l'auth) ──
-    const { data: tplData, error: tplError } = await db.storage
-      .from('pv-templates')
-      .download(templateName);
-    if (tplError || !tplData) {
+    // ── Télécharger le PDF via URL publique (bucket public) ──
+    const { data: urlData } = db.storage.from('pv-templates').getPublicUrl(templateName);
+    const fetchResp = await fetch(urlData.publicUrl);
+    if (!fetchResp.ok) {
       showToast(`Template "${templateName}" introuvable. Uploadez-le dans Config → Templates.`, 'error');
       return;
     }
+    const tplData = await fetchResp.arrayBuffer();
 
-    const pdfBytes = await tplData.arrayBuffer();
+    const pdfBytes = tplData;
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
