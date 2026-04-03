@@ -686,7 +686,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V59</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V60</span></div>
     </div>
   </div>
 
@@ -3239,13 +3239,15 @@ async function genererPresence() {
     const tplData = await tplBlob.arrayBuffer();
 
     const pdfBytes = tplData;
+    console.log('[DEBUG] PDFLib:', !!window.PDFLib, 'pdfBytes size:', pdfBytes.byteLength);
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const pages = pdfDoc.getPages();
+    console.log('[DEBUG] pages:', pages.length, 'h:', pages[0]?.getHeight());
     const p1 = pages[0]; // recto
     const p2 = pages[1]; // verso
-    const h = p1.getHeight(); // 595 (A4 paysage)
+    const h = p1.getHeight();
 
     // ── Helpers ──
     // PDF origin = bas-gauche, pdfplumber origin = haut-gauche → y_pdf = h - y_plumber
