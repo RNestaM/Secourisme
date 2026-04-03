@@ -686,7 +686,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V63</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V64</span></div>
     </div>
   </div>
 
@@ -3227,9 +3227,14 @@ async function genererPresence() {
   try {
     // ── pdf-lib : les classes principales sont dans window.PDFLib ──
     const PDFLibObj = window.PDFLib;
-    console.log('[DEBUG] PDFDocument:', !!PDFLibObj?.PDFDocument, 'typeof:', typeof PDFLibObj?.PDFDocument);
-    if (!PDFLibObj?.PDFDocument) { showToast('pdf-lib non chargé correctement', 'error'); return; }
-    const { PDFDocument, rgb, StandardFonts } = PDFLibObj;
+    console.log('[DEBUG] window.PDFLib keys:', Object.keys(PDFLibObj||{}).join(','));
+    console.log('[DEBUG] PDFDocument direct:', !!window.PDFDocument, 'typeof:', typeof window.PDFDocument);
+    // pdf-lib v1.x expose PDFDocument directement sur window dans certains builds
+    const PDFDocument = PDFLibObj?.PDFDocument || window.PDFDocument;
+    const rgb = PDFLibObj?.rgb || window.rgb;
+    const StandardFonts = PDFLibObj?.StandardFonts || window.StandardFonts;
+    console.log('[DEBUG] PDFDocument resolved:', !!PDFDocument);
+    if (!PDFDocument) { showToast('pdf-lib non chargé correctement', 'error'); return; }
 
     // ── Télécharger le PDF via Supabase JS (fonctionne malgré warning CORS Firefox) ──
     const { data: tplBlob, error: tplError } = await db.storage
