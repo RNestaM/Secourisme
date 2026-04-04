@@ -688,7 +688,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V76</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V79</span></div>
     </div>
   </div>
 
@@ -1846,20 +1846,17 @@ async function copierParticipantsSelectionnes() {
   const checked = [...document.querySelectorAll('.formation-check:checked')];
   if (!checked.length) return;
 
-  // Trier par date croissante
-  checked.sort((a, b) => a.dataset.date.localeCompare(b.dataset.date));
-
   const btn = document.getElementById('btn-copier-participants');
   btn.textContent = '⏳ Chargement...';
   btn.disabled = true;
 
   try {
-    const lines = [];
+    // Charger toutes les formations cochées avec leurs participants
+    const formations = [];
     for (const cb of checked) {
       const fid = cb.value;
-      const dateStr = cb.dataset.date; // YYYY-MM-DD
-      const [y, m, d] = dateStr.split('-');
-      const dateAff = `${d}/${m}`;
+      const f = allFormations.find(x => x.id === fid);
+      if (!f) continue;
 
       const { data: parts } = await db
         .from('formation_participants')
@@ -1867,16 +1864,39 @@ async function copierParticipantsSelectionnes() {
         .eq('formation_id', fid)
         .order('created_at');
 
-      lines.push(dateAff);
-      if (parts && parts.length) {
-        parts.forEach(p => {
-          const pers = p.personnel || {};
-          lines.push(`${fmtNigend(pers.nigend) || '—'} ${pers.nom || ''} ${pers.prenom || ''}`.trim());
-        });
-      } else {
-        lines.push('(aucun participant)');
+      formations.push({ f, parts: parts || [] });
+    }
+
+    // Grouper PSC puis SN1, dans chaque groupe trier par date puis prénom
+    const lines = [];
+    for (const typeLabel of ['PSC', 'SN1']) {
+      const group = formations
+        .filter(({ f }) => f.type_formation === typeLabel)
+        .sort((a, b) => a.f.date_formation.localeCompare(b.f.date_formation));
+
+      if (!group.length) continue;
+
+      lines.push(typeLabel);
+
+      for (const { f, parts } of group) {
+        const [y, m, d] = f.date_formation.split('-');
+        lines.push(`${d}/${m}`);
+
+        // Trier par prénom alphabétique
+        const sorted = [...parts].sort((a, b) =>
+          (a.personnel?.nom || '').localeCompare(b.personnel?.nom || '', 'fr')
+        );
+
+        if (sorted.length) {
+          sorted.forEach(p => {
+            const pers = p.personnel || {};
+            lines.push(`${fmtNigend(pers.nigend) || '—'} ${pers.nom || ''} ${pers.prenom || ''}`.trim());
+          });
+        } else {
+          lines.push('(aucun participant)');
+        }
+        lines.push('');
       }
-      lines.push(''); // ligne vide entre formations
     }
 
     // Supprimer la dernière ligne vide
@@ -2023,14 +2043,17 @@ async function openFormationDetail(id) {
         ${f.nom_fichier ? `<span style="margin-left:8px;opacity:0.7;font-size:13px">📁 ${f.nom_fichier}</span>` : ''}
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
-      <button class="btn" style="background:rgba(255,255,255,0.15);color:white" onclick="openFormationModal('${f.id}')">✏️ Modifier</button>
-      ${peutCloturer ? `<button class="btn" style="background:#1a7a4a;color:white;font-weight:700" onclick="cloturerFormation('${f.id}')">🔒 Clôturer</button>` : '<span style="opacity:0.6;font-size:13px;padding-top:10px">Formation clôturée</span>'}
-      <div style="width:100%;height:0"></div>
-      <button class="btn btn-or" onclick="genererPV()">📄 Générer PV</button>
-      <button class="btn btn-secondary" onclick="genererPresence()">📋 Présence</button>
-      <button class="btn btn-secondary" onclick="genererCertifications()">📜 Certifications</button>
-      <button class="btn btn-primary" onclick="genererPresenceEtCertif()">📋📜 Présence + Certifs</button>
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end">
+      <div style="display:flex;gap:8px">
+        <button class="btn" style="background:rgba(255,255,255,0.18);color:white;border:1px solid rgba(255,255,255,0.3)" onclick="openFormationModal('${f.id}')">✏️ Modifier</button>
+        ${peutCloturer ? `<button class="btn" style="background:#1a7a4a;color:white;font-weight:700" onclick="cloturerFormation('${f.id}')">🔒 Clôturer</button>` : '<span style="opacity:0.6;font-size:13px;padding-top:10px">Formation clôturée</span>'}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn btn-or" style="font-weight:700" onclick="genererPV()">📄 PV</button>
+        <button class="btn" style="background:#4a90d9;color:white;font-weight:600" onclick="genererPresence()">📋 Présence</button>
+        <button class="btn" style="background:#7b68ee;color:white;font-weight:600" onclick="genererCertifications()">📜 Certifs</button>
+        <button class="btn" style="background:#2ecc71;color:white;font-weight:700" onclick="genererPresenceEtCertif()">📋📜 Présence + Certifs</button>
+      </div>
     </div>
   `;
 
