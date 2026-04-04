@@ -641,6 +641,19 @@ tbody td {
     </div>
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
+    <div style="text-align:center;margin-top:14px">
+      <a href="#" onclick="showResetPassword();return false;" style="font-size:13px;color:#aaa;text-decoration:none">Mot de passe oublié ?</a>
+    </div>
+
+    <!-- Panel reset mot de passe (caché par défaut) -->
+    <div id="reset-panel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--bordure)">
+      <div style="font-size:13px;color:#666;margin-bottom:10px">Entrez votre email pour recevoir un lien de réinitialisation.</div>
+      <div class="form-group">
+        <input type="email" id="reset-email" placeholder="prenom.nom@email.fr" style="width:100%;padding:12px 14px;border:1.5px solid var(--bordure);border-radius:8px;font-family:'Barlow',sans-serif;font-size:15px;outline:none">
+      </div>
+      <button onclick="doResetPassword()" style="width:100%;padding:11px;background:var(--gris-moyen);color:white;border:none;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Envoyer le lien</button>
+      <div id="reset-msg" style="font-size:13px;margin-top:10px;text-align:center;display:none"></div>
+    </div>
   </div>
 </div>
 
@@ -648,10 +661,10 @@ tbody td {
 <div id="app">
   <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="badge">🛡️</div>
+    <div class="sidebar-header" style="text-align:center">
+      <div class="badge" style="margin:0 auto 10px">🚑</div>
       <h2>Formation<br>Secourisme</h2>
-      <p>Formation Secourisme</p>
+      <p>Gendarmerie de Bretagne</p>
     </div>
     <nav>
       <div class="nav-section">
@@ -688,7 +701,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V82</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V85</span></div>
     </div>
   </div>
 
@@ -712,9 +725,9 @@ tbody td {
       <!-- Listes SN1 urgents/perdus -->
       <div id="dash-alertes-detail" style="display:none;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px"></div>
 
-      <div class="table-wrapper">
+      <div class="table-wrapper" style="margin-bottom:16px">
         <div class="table-toolbar">
-          <strong style="font-size:15px">Formations récentes</strong>
+          <strong style="font-size:15px">🟢 Formations en cours</strong>
           <button class="btn btn-secondary btn-sm" onclick="showPage('formations')">Voir tout →</button>
         </div>
         <table>
@@ -724,7 +737,21 @@ tbody td {
               <th>Formateur</th><th>N° CRI</th><th>Statut</th><th></th>
             </tr>
           </thead>
-          <tbody id="dash-formations"></tbody>
+          <tbody id="dash-formations-encours"></tbody>
+        </table>
+      </div>
+      <div class="table-wrapper">
+        <div class="table-toolbar">
+          <strong style="font-size:15px">🔒 Formations clôturées / effectuées</strong>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Type</th><th>Format</th><th>Moment</th>
+              <th>Formateur</th><th>N° CRI</th><th>Statut</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="dash-formations-cloturees"></tbody>
         </table>
       </div>
     </div>
@@ -785,25 +812,31 @@ tbody td {
         </div>
         <button class="btn btn-primary" onclick="openFormationModal()">+ Nouvelle formation</button>
       </div>
-      <div class="table-wrapper">
+
+      <!-- Barre de filtres commune -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+        <input class="search-input" type="text" id="search-formations"
+          placeholder="🔍  Rechercher..."
+          oninput="filterFormations()">
+        <select id="filter-type" onchange="filterFormations()" style="padding:8px 12px;border:1.5px solid var(--bordure);border-radius:8px;font-size:13px;outline:none">
+          <option value="">Tous types</option>
+          <option>PSC</option><option>SN1</option>
+        </select>
+        <select id="filter-statut" onchange="filterFormations()" style="padding:8px 12px;border:1.5px solid var(--bordure);border-radius:8px;font-size:13px;outline:none">
+          <option value="">Tous statuts</option>
+          <option>A ouvrir</option><option>Ouverte</option>
+          <option>Admin - PreForm - OK</option><option>A la signature</option>
+          <option>Admin - PostForm - OK</option><option>Effectuée</option>
+          <option>Clôturée</option><option>Annulée</option>
+        </select>
+        <button class="btn btn-secondary" id="btn-copier-participants" onclick="copierParticipantsSelectionnes()" style="display:none">📋 Copier participants</button>
+      </div>
+
+      <!-- Tableau En cours -->
+      <div class="table-wrapper" style="margin-bottom:20px">
         <div class="table-toolbar">
-          <input class="search-input" type="text" id="search-formations"
-            placeholder="🔍  Rechercher..."
-            oninput="filterFormations()">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <select id="filter-type" onchange="filterFormations()" style="padding:8px 12px;border:1.5px solid var(--bordure);border-radius:8px;font-size:13px;outline:none">
-              <option value="">Tous types</option>
-              <option>PSC</option><option>SN1</option>
-            </select>
-            <select id="filter-statut" onchange="filterFormations()" style="padding:8px 12px;border:1.5px solid var(--bordure);border-radius:8px;font-size:13px;outline:none">
-              <option value="">Tous statuts</option>
-              <option>A ouvrir</option><option>Ouverte</option>
-              <option>Admin - PreForm - OK</option><option>A la signature</option>
-              <option>Admin - PostForm - OK</option><option>Effectuée</option>
-              <option>Clôturée</option><option>Annulée</option>
-            </select>
-            <button class="btn btn-secondary" id="btn-copier-participants" onclick="copierParticipantsSelectionnes()" style="display:none">📋 Copier participants</button>
-          </div>
+          <strong style="font-size:15px">🟢 En cours</strong>
+          <span id="formations-encours-count" style="font-size:13px;color:#888"></span>
         </div>
         <div style="overflow-x:auto">
           <table>
@@ -815,7 +848,28 @@ tbody td {
                 <th>Statut</th><th></th>
               </tr>
             </thead>
-            <tbody id="tbody-formations"></tbody>
+            <tbody id="tbody-formations-encours"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tableau Clôturées -->
+      <div class="table-wrapper">
+        <div class="table-toolbar">
+          <strong style="font-size:15px">🔒 Clôturées / Effectuées</strong>
+          <span id="formations-cloturees-count" style="font-size:13px;color:#888"></span>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:32px"></th>
+                <th>Date</th><th>Type</th><th>Format</th><th>Moment</th>
+                <th>Formateur</th><th>N° CRI</th><th>Participants</th>
+                <th>Statut</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-formations-cloturees"></tbody>
           </table>
         </div>
       </div>
@@ -1325,6 +1379,32 @@ function initSupabase() {
 }
 
 // ─── LOGIN ────────────────────────────────────────────────
+function showResetPassword() {
+  const panel = document.getElementById('reset-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (panel.style.display === 'block') {
+    const email = document.getElementById('login-email').value;
+    if (email) document.getElementById('reset-email').value = email;
+  }
+}
+
+async function doResetPassword() {
+  const email = document.getElementById('reset-email').value.trim();
+  const msg = document.getElementById('reset-msg');
+  if (!email) { msg.style.display='block'; msg.style.color='var(--rouge)'; msg.textContent='Veuillez saisir votre email.'; return; }
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href
+  });
+  msg.style.display = 'block';
+  if (error) {
+    msg.style.color = 'var(--rouge)';
+    msg.textContent = 'Erreur : ' + error.message;
+  } else {
+    msg.style.color = 'var(--vert)';
+    msg.textContent = '✅ Email envoyé ! Vérifiez votre boîte mail.';
+  }
+}
+
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const pwd = document.getElementById('login-password').value;
@@ -1535,32 +1615,40 @@ async function loadDashboard() {
       miniList(sn1Perdu) +
     '</div>';
 
-  // Recent formations
+  // Formations — séparées en cours / clôturées
   const { data: recent } = await db
     .from('formations')
-    .select('*, formation_responsable:formateurs!formations_responsable_id_fkey(nom, prenom)')
-    .order('date_formation', {ascending: false})
-    .limit(8);
+    .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom)')
+    .order('date_formation', {ascending: false});
 
-  const tbody = document.getElementById('dash-formations');
-  if (!recent || recent.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">📋</div><p>Aucune formation</p></div></td></tr>';
-    return;
+  const cloturees = ['Clôturée','Effectuée','Annulée'];
+
+  function renderDashFormations(list, tbodyId) {
+    const tbody = document.getElementById(tbodyId);
+    if (!list || !list.length) {
+      tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state" style="padding:12px"><p style="color:#aaa;font-size:13px">Aucune formation</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(f => {
+      const resp = f.responsable;
+      return `
+      <tr onclick="openFormationDetail('${f.id}')">
+        <td>${fmtDate(f.date_formation)}</td>
+        <td><span class="badge-type type-${f.type_formation.toLowerCase()}-${f.format.toLowerCase()}">${f.type_formation} ${f.format}</span></td>
+        <td>${f.format}</td>
+        <td>${f.moment || '—'}</td>
+        <td>${resp ? resp.prenom + ' ' + resp.nom : '—'}</td>
+        <td>${f.numero_cri || '—'}</td>
+        <td><span class="badge-statut ${statutClass(f.statut)}">${f.statut}</span></td>
+        <td><button class="btn btn-secondary btn-sm">Voir</button></td>
+      </tr>`;
+    }).join('');
   }
-  tbody.innerHTML = recent.map(f => {
-    const resp = f.responsable;
-    return `
-    <tr onclick="openFormationDetail('${f.id}')">
-      <td>${fmtDate(f.date_formation)}</td>
-      <td><span class="badge-type type-${f.type_formation.toLowerCase()}-${f.format.toLowerCase()}">${f.type_formation} ${f.format}</span></td>
-      <td>${f.format}</td>
-      <td>${f.moment || '—'}</td>
-      <td>${resp ? resp.prenom + ' ' + resp.nom : '—'}</td>
-      <td>${f.numero_cri || '—'}</td>
-      <td><span class="badge-statut ${statutClass(f.statut)}">${f.statut}</span></td>
-      <td><button class="btn btn-secondary btn-sm">Voir</button></td>
-    </tr>`;
-  }).join('');
+
+  const enCours  = (recent || []).filter(f => !cloturees.includes(f.statut));
+  const clotures = (recent || []).filter(f =>  cloturees.includes(f.statut));
+  renderDashFormations(enCours,  'dash-formations-encours');
+  renderDashFormations(clotures, 'dash-formations-cloturees');
 }
 
 // ─── PERSONNEL ────────────────────────────────────────────
@@ -1748,7 +1836,8 @@ async function deletePersonnel(id) {
 // ─── FORMATIONS ───────────────────────────────────────────
 async function loadFormations() {
   if (!db) return;
-  document.getElementById('tbody-formations').innerHTML = '<tr><td colspan="9"><div class="loading"><div class="spinner"></div> Chargement...</div></td></tr>';
+  document.getElementById('tbody-formations-encours').innerHTML = '<tr><td colspan="10"><div class="loading"><div class="spinner"></div> Chargement...</div></td></tr>';
+  document.getElementById('tbody-formations-cloturees').innerHTML = '';
 
   try {
     const { data, error } = await db
@@ -1772,7 +1861,7 @@ async function loadFormations() {
     document.getElementById('formations-count').textContent = `${allFormations.length} formation(s)`;
     renderFormations(allFormations);
   } catch(e) {
-    document.getElementById('tbody-formations').innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">⚠️</div><p>Erreur : ${e.message}</p></div></td></tr>`;
+    document.getElementById('tbody-formations-encours').innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="icon">⚠️</div><p>Erreur : ${e.message}</p></div></td></tr>`;
   }
 }
 
@@ -1791,39 +1880,48 @@ function filterFormations() {
   renderFormations(res);
 }
 
+const STATUTS_CLOTURES = ['Clôturée','Effectuée','Annulée'];
+
 function renderFormations(list) {
-  const tbody = document.getElementById('tbody-formations');
-  if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="icon">📋</div><p>Aucune formation</p></div></td></tr>';
-    return;
-  }
-  tbody.innerHTML = list.map(f => {
-    const nbPart = f._nbParticipants ?? 0;
-    return `
-    <tr onclick="openFormationDetail('${f.id}')">
-      <td onclick="event.stopPropagation()">
-        <input type="checkbox" class="formation-check" value="${f.id}" data-date="${f.date_formation}" onchange="onFormationCheckChange()">
-      </td>
-      <td>${fmtDate(f.date_formation)}</td>
-      <td><span class="badge-type type-${f.type_formation.toLowerCase()}-${f.format.toLowerCase()}">${f.type_formation}</span></td>
-      <td>${f.format}</td>
-      <td>${f.moment||'—'}</td>
-      <td>${f.responsable ? f.responsable.prenom+' '+f.responsable.nom : '—'}</td>
-      <td>${f.numero_cri||'—'}</td>
-      <td style="text-align:center">${nbPart}</td>
-      <td onclick="event.stopPropagation()">
-        <select class="statut-select" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--bordure);border-radius:6px;font-family:'Barlow',sans-serif;outline:none;cursor:pointer;background:white"
-          onchange="updateStatutFormation('${f.id}', this.value, this)">
-          ${['A ouvrir','Ouverte','Admin - PreForm - OK','A la signature','Admin - PostForm - OK','Effectuée','Clôturée','Annulée']
-            .map(s => `<option value="${s}" ${s === f.statut ? 'selected' : ''}>${s}</option>`).join('')}
-        </select>
-      </td>
-      <td>
-        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openFormationModal('${f.id}')">✏️</button>
-        ${currentFormateur?.is_admin ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteFormation('${f.id}')">🗑</button>` : ''}
-      </td>
-    </tr>`;
-  }).join('');
+  const enCours  = list.filter(f => !STATUTS_CLOTURES.includes(f.statut));
+  const clotures = list.filter(f =>  STATUTS_CLOTURES.includes(f.statut));
+
+  document.getElementById('formations-encours-count').textContent = `${enCours.length} formation(s)`;
+  document.getElementById('formations-cloturees-count').textContent = `${clotures.length} formation(s)`;
+
+  const makeRows = (arr, withCheck) => {
+    if (!arr.length) return `<tr><td colspan="10"><div class="empty-state" style="padding:12px"><p style="color:#aaa;font-size:13px">Aucune formation</p></div></td></tr>`;
+    return arr.map(f => {
+      const nbPart = f._nbParticipants ?? 0;
+      return `
+      <tr onclick="openFormationDetail('${f.id}')">
+        <td onclick="event.stopPropagation()">
+          ${withCheck ? `<input type="checkbox" class="formation-check" value="${f.id}" data-date="${f.date_formation}" onchange="onFormationCheckChange()">` : ''}
+        </td>
+        <td>${fmtDate(f.date_formation)}</td>
+        <td><span class="badge-type type-${f.type_formation.toLowerCase()}-${f.format.toLowerCase()}">${f.type_formation}</span></td>
+        <td>${f.format}</td>
+        <td>${f.moment||'—'}</td>
+        <td>${f.responsable ? f.responsable.prenom+' '+f.responsable.nom : '—'}</td>
+        <td>${f.numero_cri||'—'}</td>
+        <td style="text-align:center">${nbPart}</td>
+        <td onclick="event.stopPropagation()">
+          <select class="statut-select" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--bordure);border-radius:6px;font-family:'Barlow',sans-serif;outline:none;cursor:pointer;background:white"
+            onchange="updateStatutFormation('${f.id}', this.value, this)">
+            ${['A ouvrir','Ouverte','Admin - PreForm - OK','A la signature','Admin - PostForm - OK','Effectuée','Clôturée','Annulée']
+              .map(s => `<option value="${s}" ${s === f.statut ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openFormationModal('${f.id}')">✏️</button>
+          ${currentFormateur?.is_admin ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteFormation('${f.id}')">🗑</button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+  };
+
+  document.getElementById('tbody-formations-encours').innerHTML  = makeRows(enCours,  true);
+  document.getElementById('tbody-formations-cloturees').innerHTML = makeRows(clotures, false);
 }
 
 function toggleAllFormations(checked) {
@@ -2588,6 +2686,8 @@ async function loadFormateurs() {
       <span style="font-size:12px;color:${f.actif?'var(--vert)':'var(--rouge)'}">${f.actif?'Actif':'Inactif'}</span>
       <button class="btn btn-secondary btn-sm" onclick="editFormateur('${f.id}')">✏️</button>
       ${!f.is_admin ? `<button class="btn btn-secondary btn-sm" onclick="toggleFormateur('${f.id}',${!f.actif})">${f.actif?'Désactiver':'Activer'}</button>` : ''}
+      ${f.email ? `<button class="btn btn-secondary btn-sm" title="Envoyer lien reset MDP" onclick="sendResetMdp('${f.email}')">🔑</button>` : ''}
+      ${!f.is_admin ? `<button class="btn btn-danger btn-sm" title="Supprimer formateur" onclick="deleteFormateur('${f.id}','${f.user_id||''}')">🗑</button>` : ''}
     </div>
   `).join('') || '<p style="color:#999;font-size:13px">Aucun formateur</p>';
 }
@@ -2625,9 +2725,11 @@ async function editFormateur(id) {
         </div>
       </div>
       <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#666;display:block;margin-bottom:4px">Qualification</label>
-      <select id="ef-qualif" style="width:100%;padding:10px;border:1.5px solid var(--bordure);border-radius:8px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;margin-bottom:16px">
+      <select id="ef-qualif" style="width:100%;padding:10px;border:1.5px solid var(--bordure);border-radius:8px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;margin-bottom:12px">
         ${options}
       </select>
+      <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#666;display:block;margin-bottom:4px">Email</label>
+      <input id="ef-email" type="email" value="${f.email||''}" placeholder="prenom.nom@email.fr" style="width:100%;padding:8px 10px;border:1.5px solid var(--bordure);border-radius:7px;font-family:'Barlow',sans-serif;font-size:13px;outline:none;margin-bottom:16px">
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:8px 16px;border:none;border-radius:7px;background:var(--gris-clair);cursor:pointer;font-family:'Barlow',sans-serif">Annuler</button>
         <button onclick="saveFormateur('${id}',this)" style="padding:8px 16px;border:none;border-radius:7px;background:var(--bleu);color:white;cursor:pointer;font-family:'Barlow',sans-serif;font-weight:600">Enregistrer</button>
@@ -2641,17 +2743,39 @@ async function editFormateur(id) {
 async function saveFormateur(id, btn) {
   btn.textContent = '...';
   btn.disabled = true;
+  const newEmail = document.getElementById('ef-email').value.trim() || null;
   const payload = {
     qualification:   document.getElementById('ef-qualif').value || null,
     nigend:          document.getElementById('ef-nigend').value.trim() || null,
     date_naissance:  document.getElementById('ef-ddn').value || null,
     ville_naissance: document.getElementById('ef-lieu').value.trim() || null,
     unite:           document.getElementById('ef-unite').value.trim() || null,
+    email:           newEmail,
   };
   const { error } = await db.from('formateurs').update(payload).eq('id', id);
   btn.closest('div[style*="fixed"]').remove();
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast('Formateur mis à jour ✅', 'success');
+  loadFormateurs();
+}
+
+async function sendResetMdp(email) {
+  if (!confirm(`Envoyer un lien de réinitialisation du mot de passe à ${email} ?`)) return;
+  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast(`Lien envoyé à ${email} ✅`, 'success');
+}
+
+async function deleteFormateur(id, userId) {
+  if (!confirm('Supprimer définitivement ce formateur ? Cette action est irréversible.')) return;
+  // Supprimer le compte Auth si existant
+  if (userId) {
+    const { error: authErr } = await db.functions.invoke('delete-user', { body: { user_id: userId } });
+    // On continue même si l'invocation échoue (la fonction edge peut ne pas exister)
+  }
+  const { error } = await db.from('formateurs').delete().eq('id', id);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('Formateur supprimé ✅', 'success');
   loadFormateurs();
 }
 async function toggleFormateur(id, actif) {
