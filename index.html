@@ -688,7 +688,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V79</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V81</span></div>
     </div>
   </div>
 
@@ -3466,9 +3466,9 @@ async function genererPresence() {
     }
 
     // ── Participants ──
-    // On capture la ligne {NIGEND} + les lignes suivantes JUSQU'À la ligne FORMATEUR(S)
-    // La ligne FORMATEUR(S) et ce qui suit reste intact
-    const rowMarkerRegex = /(<table:table-row\b[^>]*>(?:(?!<\/table:table-row>)[\s\S])*\{NIGEND\}[\s\S]*?<\/table:table-row>)((?:\s*<table:table-row\b(?![\s\S]*?FORMATEUR)[\s\S]*?<\/table:table-row>)*)/;
+    // Le template a la ligne {NIGEND} + 9 lignes vides numérotées 2-10.
+    // On capture tout jusqu'à FORMATEUR et on remplace par exactement 10 lignes.
+    const rowMarkerRegex = /(<table:table-row\b[^>]*>[\s\S]*?\{NIGEND\}[\s\S]*?<\/table:table-row>)((?:\s*<table:table-row\b[\s\S]*?<\/table:table-row>)*?)(?=\s*<table:table-row\b[\s\S]*?FORMATEUR)/;
     const rowMatch = xml.match(rowMarkerRegex);
     if (rowMatch) {
       const templateRow = rowMatch[1];
@@ -3914,10 +3914,7 @@ function showToast(msg, type='') {
 
 // ─── INIT ─────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-  // ⚠️ LOGIN SUSPENDU POUR DEV — retirer ce bloc pour réactiver l'auth
   initSupabase();
-  showApp();
-  // Fin bypass dev
 });
 
 // Close modal on overlay click
