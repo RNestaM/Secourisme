@@ -126,7 +126,7 @@ body {
 .sidebar {
   position: fixed;
   left: 0; top: 0; bottom: 0;
-  width: 240px;
+  width: 192px;
   background: var(--gris-fonce);
   display: flex;
   flex-direction: column;
@@ -217,9 +217,11 @@ nav { flex: 1; padding: 16px 0; overflow-y: auto; }
 .btn-logout:hover { background: rgba(255,255,255,0.12); color: white; }
 
 .main {
-  margin-left: 240px;
+  margin-left: 192px;
   min-height: 100vh;
-  padding: 32px;
+  padding: 24px;
+  box-sizing: border-box;
+  width: calc(100% - 192px);
 }
 
 .page { display: none; }
@@ -291,6 +293,7 @@ nav { flex: 1; padding: 16px 0; overflow-y: auto; }
   border-radius: 10px;
   box-shadow: var(--shadow);
   overflow: hidden;
+  width: 100%;
 }
 .table-toolbar {
   padding: 16px 20px;
@@ -685,7 +688,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V72</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V76</span></div>
     </div>
   </div>
 
@@ -787,7 +790,7 @@ tbody td {
           <input class="search-input" type="text" id="search-formations"
             placeholder="🔍  Rechercher..."
             oninput="filterFormations()">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <select id="filter-type" onchange="filterFormations()" style="padding:8px 12px;border:1.5px solid var(--bordure);border-radius:8px;font-size:13px;outline:none">
               <option value="">Tous types</option>
               <option>PSC</option><option>SN1</option>
@@ -799,12 +802,14 @@ tbody td {
               <option>Admin - PostForm - OK</option><option>Effectuée</option>
               <option>Clôturée</option><option>Annulée</option>
             </select>
+            <button class="btn btn-secondary" id="btn-copier-participants" onclick="copierParticipantsSelectionnes()" style="display:none">📋 Copier participants</button>
           </div>
         </div>
         <div style="overflow-x:auto">
           <table>
             <thead>
               <tr>
+                <th style="width:32px"><input type="checkbox" id="check-all-formations" onchange="toggleAllFormations(this.checked)" title="Tout sélectionner"></th>
                 <th>Date</th><th>Type</th><th>Format</th><th>Moment</th>
                 <th>Formateur</th><th>N° CRI</th><th>Participants</th>
                 <th>Statut</th><th></th>
@@ -964,7 +969,7 @@ tbody td {
         <h3>📄 Templates PV (ODT)</h3>
         <p style="font-size:13px;color:#888;margin-bottom:12px">
           Uploadez ici vos modèles ODT officiels. Le site les utilise pour générer les PV.<br>
-          Nommage : <code>SN1_FC.odt</code>, <code>SN1_FI.odt</code>, <code>PSC_FC.odt</code>, <code>PSC_FI.odt</code>, <code>PRESENCE_FC.odt</code>, <code>PRESENCE_FI.odt</code>
+          Nommage : <code>SN1_FC.odt</code>, <code>SN1_FI.odt</code>, <code>PSC_FC.odt</code>, <code>PSC_FI.odt</code>, <code>PRESENCE_FC.odt</code>, <code>PRESENCE_FI.odt</code>, <code>CERTIF_FC_PSC.odt</code>, <code>CERTIF_FC_SN1.odt</code>, <code>CERTIF_FI_PSC.odt</code>, <code>CERTIF_FI_SN1.odt</code>
         </p>
         <div id="templates-list" style="margin-bottom:16px"></div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -975,6 +980,10 @@ tbody td {
             <option value="PSC_FI">PSC — FI (Formation Initiale)</option>
             <option value="PRESENCE_FC">Feuille de présence — FC (.odt)</option>
             <option value="PRESENCE_FI">Feuille de présence — FI (.odt)</option>
+            <option value="CERTIF_FC_PSC">Certification FC PSC (.odt)</option>
+            <option value="CERTIF_FC_SN1">Certification FC SN1 (.odt)</option>
+            <option value="CERTIF_FI_PSC">Certification FI PSC (.odt)</option>
+            <option value="CERTIF_FI_SN1">Certification FI SN1 (.odt)</option>
           </select>
           <input type="file" id="template-upload-file" accept=".odt" style="font-size:13px">
           <button class="btn btn-primary" onclick="uploadTemplate()">⬆️ Uploader</button>
@@ -1792,6 +1801,9 @@ function renderFormations(list) {
     const nbPart = f._nbParticipants ?? 0;
     return `
     <tr onclick="openFormationDetail('${f.id}')">
+      <td onclick="event.stopPropagation()">
+        <input type="checkbox" class="formation-check" value="${f.id}" data-date="${f.date_formation}" onchange="onFormationCheckChange()">
+      </td>
       <td>${fmtDate(f.date_formation)}</td>
       <td><span class="badge-type type-${f.type_formation.toLowerCase()}-${f.format.toLowerCase()}">${f.type_formation}</span></td>
       <td>${f.format}</td>
@@ -1812,6 +1824,72 @@ function renderFormations(list) {
       </td>
     </tr>`;
   }).join('');
+}
+
+function toggleAllFormations(checked) {
+  document.querySelectorAll('.formation-check').forEach(cb => cb.checked = checked);
+  onFormationCheckChange();
+}
+
+function onFormationCheckChange() {
+  const anyChecked = document.querySelectorAll('.formation-check:checked').length > 0;
+  const btn = document.getElementById('btn-copier-participants');
+  if (btn) btn.style.display = anyChecked ? '' : 'none';
+  // Sync check-all
+  const all = document.querySelectorAll('.formation-check');
+  const checked = document.querySelectorAll('.formation-check:checked');
+  const chkAll = document.getElementById('check-all-formations');
+  if (chkAll) chkAll.checked = all.length > 0 && checked.length === all.length;
+}
+
+async function copierParticipantsSelectionnes() {
+  const checked = [...document.querySelectorAll('.formation-check:checked')];
+  if (!checked.length) return;
+
+  // Trier par date croissante
+  checked.sort((a, b) => a.dataset.date.localeCompare(b.dataset.date));
+
+  const btn = document.getElementById('btn-copier-participants');
+  btn.textContent = '⏳ Chargement...';
+  btn.disabled = true;
+
+  try {
+    const lines = [];
+    for (const cb of checked) {
+      const fid = cb.value;
+      const dateStr = cb.dataset.date; // YYYY-MM-DD
+      const [y, m, d] = dateStr.split('-');
+      const dateAff = `${d}/${m}`;
+
+      const { data: parts } = await db
+        .from('formation_participants')
+        .select('personnel(nigend, nom, prenom)')
+        .eq('formation_id', fid)
+        .order('created_at');
+
+      lines.push(dateAff);
+      if (parts && parts.length) {
+        parts.forEach(p => {
+          const pers = p.personnel || {};
+          lines.push(`${fmtNigend(pers.nigend) || '—'} ${pers.nom || ''} ${pers.prenom || ''}`.trim());
+        });
+      } else {
+        lines.push('(aucun participant)');
+      }
+      lines.push(''); // ligne vide entre formations
+    }
+
+    // Supprimer la dernière ligne vide
+    while (lines[lines.length - 1] === '') lines.pop();
+
+    await navigator.clipboard.writeText(lines.join('\n'));
+    showToast(`${checked.length} formation(s) copiées dans le presse-papier ✅`, 'success');
+  } catch(e) {
+    showToast('Erreur : ' + e.message, 'error');
+  } finally {
+    btn.textContent = '📋 Copier participants';
+    btn.disabled = false;
+  }
 }
 
 async function updateStatutFormation(id, statut, selectEl) {
@@ -1950,7 +2028,9 @@ async function openFormationDetail(id) {
       ${peutCloturer ? `<button class="btn" style="background:#1a7a4a;color:white;font-weight:700" onclick="cloturerFormation('${f.id}')">🔒 Clôturer</button>` : '<span style="opacity:0.6;font-size:13px;padding-top:10px">Formation clôturée</span>'}
       <div style="width:100%;height:0"></div>
       <button class="btn btn-or" onclick="genererPV()">📄 Générer PV</button>
-      <button class="btn btn-secondary" onclick="genererPresence()">📋 Feuille de présence</button>
+      <button class="btn btn-secondary" onclick="genererPresence()">📋 Présence</button>
+      <button class="btn btn-secondary" onclick="genererCertifications()">📜 Certifications</button>
+      <button class="btn btn-primary" onclick="genererPresenceEtCertif()">📋📜 Présence + Certifs</button>
     </div>
   `;
 
@@ -3345,6 +3425,8 @@ async function genererPresence() {
       '{RespNIGEND}':       escXml(fmtNigend(resp?.nigend)),
       '{RespDDN}':          escXml(fmtDDN(resp?.date_naissance)),
       '{RespLieuNaissance}':escXml(resp?.ville_naissance || ''),
+      '{RespLieuN}':        escXml(fmtLieuN(resp?.ville_naissance)),
+      '{RespDeptN}':        escXml(fmtDeptN(resp?.ville_naissance)),
       '{RespUnite}':        escXml(resp?.unite || ''),
       '{FormNom}':          escXml(form2?.nom || ''),
       '{FormPrenom}':       escXml(form2?.prenom || ''),
@@ -3352,6 +3434,8 @@ async function genererPresence() {
       '{FormNIGEND}':       escXml(fmtNigend(form2?.nigend)),
       '{FormDDN}':          escXml(fmtDDN(form2?.date_naissance)),
       '{FormLieuNaissance}':escXml(form2?.ville_naissance || ''),
+      '{FormLieuN}':        escXml(fmtLieuN(form2?.ville_naissance)),
+      '{FormDeptN}':        escXml(fmtDeptN(form2?.ville_naissance)),
       '{FormUnite}':        escXml(form2?.unite || ''),
     };
     for (const [marker, value] of Object.entries(markers)) {
@@ -3377,13 +3461,15 @@ async function genererPresence() {
             .replace('{PRENOM}',        escXml(pers.prenom || ''))
             .replace('{DDN}',           escXml(ddn))
             .replace('{LIEUNAISSANCE}', escXml(pers.ville_naissance || ''))
+            .replace('{LIEUN}',           escXml(fmtLieuN(pers.ville_naissance)))
+            .replace('{DEPTN}',           escXml(fmtDeptN(pers.ville_naissance)))
             .replace('{UNITE}',         escXml(pers.unite || ''));
           row = row.replace(/>1<\/text:p>/, `>${i+1}</text:p>`);
           newRows += row;
         } else {
           newRows += templateRow
             .replace(/\{NIGEND\}/g,'').replace(/\{NOM\}/g,'').replace(/\{PRENOM\}/g,'')
-            .replace(/\{DDN\}/g,'').replace(/\{LIEUNAISSANCE\}/g,'').replace(/\{UNITE\}/g,'')
+            .replace(/\{DDN\}/g,'').replace(/\{LIEUNAISSANCE\}/g,'').replace(/\{LIEUN\}/g,'').replace(/\{DEPTN\}/g,'').replace(/\{UNITE\}/g,'')
             .replace(/>1<\/text:p>/, `>${i+1}</text:p>`);
         }
       }
@@ -3403,6 +3489,147 @@ async function genererPresence() {
     console.error('Erreur génération présence:', e);
     showToast('Erreur : ' + e.message, 'error');
   }
+}
+
+// ─── GÉNÉRATION FEUILLES DE CERTIFICATION (ODT multi-pages) ──
+async function genererCertifications() {
+  if (!currentFormationId) return;
+
+  const { data: formation } = await db
+    .from('formations')
+    .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom, qualification, nigend, date_naissance, ville_naissance, unite)')
+    .eq('id', currentFormationId)
+    .single();
+  if (!formation) { showToast('Formation introuvable', 'error'); return; }
+
+  const { data: participants } = await db
+    .from('formation_participants')
+    .select('*, personnel(nigend, nom, prenom, sexe, date_naissance, ville_naissance, unite)')
+    .eq('formation_id', currentFormationId)
+    .order('created_at');
+
+  if (!participants || participants.length === 0) {
+    showToast('Aucun participant dans cette formation', 'error'); return;
+  }
+
+  const type   = formation.type_formation; // PSC ou SN1
+  const format = formation.format;          // FI ou FC
+  const templateFile = `CERTIF_${format}_${type}.odt`;
+  showToast('Génération en cours...', '');
+
+  try {
+    const { data: templateData, error: templateError } = await db.storage
+      .from('pv-templates')
+      .download(templateFile + '?t=' + Date.now());
+
+    if (templateError || !templateData) {
+      showToast(`Template "${templateFile}" introuvable. Uploadez-le dans Config → Templates.`, 'error');
+      return;
+    }
+
+    const arrayBuffer = await templateData.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const templateXml = await zip.file('content.xml').async('string');
+
+    // ── Extraire le body réutilisable (entre office:text) ──
+    const seqDecls = templateXml.match(/<text:sequence-decls>.*?<\/text:sequence-decls>/s)?.[0] || '';
+    const bodyMatch = templateXml.match(/(<office:text[^>]*>)([\s\S]*)(<\/office:text>)/);
+    if (!bodyMatch) throw new Error('Structure ODT invalide');
+
+    const bodyOpen  = bodyMatch[1];
+    const bodyContent = bodyMatch[2];
+    const bodyClose = bodyMatch[3];
+
+    // Contenu du body sans les sequence-decls (on les garde qu'une fois)
+    const bodyWithoutDecls = bodyContent.replace(/<text:sequence-decls>.*?<\/text:sequence-decls>/s, '');
+
+    // ── Données communes ──
+    const date = formation.date_formation;
+    const [dy, dm, dd] = date.split('-');
+    const dateFormation = `${dd}/${dm}/${dy}`;
+    const resp = formation.responsable;
+
+    // Formateur supplémentaire
+    const formateursIds = formation.formateurs_ids || [];
+    const autreId = formateursIds.find(id => id !== formation.responsable_id);
+    let form2 = null;
+    if (autreId) {
+      const { data: f2 } = await db.from('formateurs')
+        .select('nom, prenom, qualification, nigend, date_naissance, ville_naissance, unite')
+        .eq('id', autreId).single();
+      form2 = f2;
+    }
+
+    // ── Construire le body multi-pages ──
+    // Chaque page = sequence-decls (1 fois) + body du template avec les données du participant
+    // Le style P1 (premier paragraphe) contient style:master-page-name="Standard" qui force un saut de page
+    let allPages = seqDecls;
+
+    for (let i = 0; i < participants.length; i++) {
+      const part = participants[i];
+      const pers = part.personnel || {};
+      const ddn = pers.date_naissance ? fmtDatePV(pers.date_naissance) : '';
+
+      let pageXml = bodyWithoutDecls;
+
+      // Normalisation fragments
+      pageXml = pageXml.replace(/(\{[A-Za-z]+)<text:span[^>]*>(\})<\/text:span>/g, '$1$2');
+      pageXml = pageXml.replace(/(\{[A-Za-z]+)<\/text:p>\s*<text:p[^>]*>(\})/g, '$1$2');
+      pageXml = pageXml.replace(/(\{[A-Za-z]+\})[ \t]+(<\/text:p>)/g, '$1$2');
+      pageXml = pageXml.replace(/\{([A-Za-z]+)\s+\}/g, '{$1}');
+
+      // Marqueurs participant
+      const map = {
+        '{DateFormation}':  escXml(dateFormation),
+        '{NOM}':            escXml(pers.nom || ''),
+        '{PRENOM}':         escXml(pers.prenom || ''),
+        '{NIGEND}':         escXml(fmtNigend(pers.nigend)),
+        '{DDN}':            escXml(ddn),
+        '{LIEUNAISSANCE}':  escXml(pers.ville_naissance || ''),
+        '{LIEUN}':          escXml(fmtLieuN(pers.ville_naissance)),
+        '{DEPTN}':          escXml(fmtDeptN(pers.ville_naissance)),
+        '{UNITE}':          escXml(pers.unite || ''),
+        '{RespNom}':        escXml(resp?.nom || ''),
+        '{RespPrenom}':     escXml(resp?.prenom || ''),
+        '{FormNom}':        escXml(form2?.nom || ''),
+        '{FormPrenom}':     escXml(form2?.prenom || ''),
+      };
+      for (const [marker, value] of Object.entries(map)) {
+        pageXml = pageXml.replaceAll(marker, value);
+      }
+
+      allPages += pageXml;
+    }
+
+    // ── Reconstruire le content.xml complet ──
+    let finalXml = templateXml.replace(
+      /(<office:text[^>]*>)[\s\S]*(<\/office:text>)/,
+      bodyOpen + allPages + bodyClose
+    );
+
+    zip.file('content.xml', finalXml);
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.oasis.opendocument.text' });
+
+    const filename = `CERTIF_${type}_${format}_${dateFormation.replace(/\//g,'-')}_${participants.length}p.odt`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    showToast(`Certifications générées : ${participants.length} fiche(s) ✅`, 'success');
+
+  } catch(e) {
+    console.error('Erreur génération certifications:', e);
+    showToast('Erreur : ' + e.message, 'error');
+  }
+}
+
+async function genererPresenceEtCertif() {
+  showToast('Génération feuille de présence...', '');
+  await genererPresence();
+  // Petit délai pour laisser le navigateur déclencher le 1er téléchargement
+  await new Promise(r => setTimeout(r, 800));
+  showToast('Génération feuilles de certification...', '');
+  await genererCertifications();
 }
 
 async function genererPV() {
@@ -3533,6 +3760,8 @@ async function genererPV() {
             .replace('{SEXE}',          escXml(pers.sexe || ''))
             .replace('{DDN}',           escXml(ddn))
             .replace('{LIEUNAISSANCE}', escXml(pers.ville_naissance || ''))
+            .replace('{LIEUN}',           escXml(fmtLieuN(pers.ville_naissance)))
+            .replace('{DEPTN}',           escXml(fmtDeptN(pers.ville_naissance)))
             .replace('{UNITE}',         escXml(pers.unite || ''))
             .replace('{RESULTAT}',      escXml(resultat));
         } else {
@@ -3618,6 +3847,16 @@ function fmtNigend(n) {
   const s = String(n).replace(/\s/g, '');
   if (s.length <= 3) return s;
   return s.slice(0, 3) + ' ' + s.slice(3);
+}
+
+function fmtLieuN(v) {
+  if (!v) return '';
+  return v.split('(')[0].trim();
+}
+
+function fmtDeptN(v) {
+  if (!v) return '';
+  return (v.match(/\((\d+)\)/)?.[1]) || '';
 }
 
 function validClass(dateStr) {
