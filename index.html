@@ -642,7 +642,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V92</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V94</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -695,7 +695,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V92</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V94</span></div>
     </div>
   </div>
 
@@ -2114,7 +2114,7 @@ async function openFormationDetail(id) {
 
   const { data: f } = await db
     .from('formations')
-    .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom)')
+    .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom, qualification, nigend, date_naissance, ville_naissance, unite)')
     .eq('id', id)
     .single();
 
@@ -2132,6 +2132,7 @@ async function openFormationDetail(id) {
         <span class="badge-statut" style="background:rgba(255,255,255,0.2);color:white">${f.statut}</span>
         ${f.nom_fichier ? `<span style="margin-left:8px;opacity:0.7;font-size:13px">📁 ${f.nom_fichier}</span>` : ''}
       </div>
+      <div id="docs-generes-info" style="margin-top:8px"></div>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end">
       <div style="display:flex;gap:8px">
@@ -2148,6 +2149,7 @@ async function openFormationDetail(id) {
   `;
 
   await loadParticipants(id);
+  refreshDocsGeneres(f.documents_generes);
 }
 
 async function loadParticipants(formationId) {
@@ -2939,28 +2941,6 @@ async function setResultat(fpId, resultat, nom, prenom) {
   await loadParticipants(currentFormationId);
 }
 
-async function validerTous() {
-  if (!currentFormationId) return;
-  if (!confirm('Marquer tous les participants comme Validés ?')) return;
-  const { error } = await db.from('formation_participants')
-    .update({ resultat: 'Validé', present: true })
-    .eq('formation_id', currentFormationId);
-  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
-  showToast('Tous validés ✅', 'success');
-  await loadParticipants(currentFormationId);
-}
-
-async function invaliderTous() {
-  if (!currentFormationId) return;
-  if (!confirm('Marquer tous les participants comme Non validés ?')) return;
-  const { error } = await db.from('formation_participants')
-    .update({ resultat: 'Non validé', present: true })
-    .eq('formation_id', currentFormationId);
-  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
-  showToast('Tous non validés ❌', 'success');
-  await loadParticipants(currentFormationId);
-}
-
 function openCommentModal(fpId, nomComplet, existingNote) {
   currentCommentFpId = fpId;
   document.getElementById('comment-participant-name').textContent = nomComplet;
@@ -3676,6 +3656,7 @@ async function genererPresence() {
     a.download = filename;
     a.click();
     showToast('Feuille de présence générée ✅', 'success');
+    await marquerGeneration('presence');
 
   } catch(e) {
     console.error('Erreur génération présence:', e);
@@ -3808,12 +3789,36 @@ async function genererCertifications() {
     a.download = filename;
     a.click();
     showToast(`Certifications générées : ${participants.length} fiche(s) ✅`, 'success');
+    await marquerGeneration('certif');
 
   } catch(e) {
     console.error('Erreur génération certifications:', e);
     showToast('Erreur : ' + e.message, 'error');
   }
 }
+
+// ─── SUIVI GÉNÉRATIONS ───────────────────────────────────
+async function marquerGeneration(type) {
+  if (!currentFormationId) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: f } = await db.from('formations').select('documents_generes').eq('id', currentFormationId).single();
+  const current = f?.documents_generes || {};
+  current[type] = today;
+  await db.from('formations').update({ documents_generes: current }).eq('id', currentFormationId);
+  // Rafraîchir l'affichage du header
+  refreshDocsGeneres(current);
+}
+
+function refreshDocsGeneres(docs) {
+  const el = document.getElementById('docs-generes-info');
+  if (!el || !docs) return;
+  const labels = { presence: '📋 Présence', certif: '📜 Certifs', pv: '📄 PV' };
+  const parts = Object.entries(docs)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `<span style="margin-right:12px;opacity:0.7;font-size:12px">${labels[k] || k} <span style="opacity:0.6">${fmtDate(v)}</span></span>`);
+  el.innerHTML = parts.length ? parts.join('') : '';
+}
+
 
 async function genererPresenceEtCertif() {
   showToast('Génération feuille de présence...', '');
@@ -3979,6 +3984,7 @@ async function genererPV() {
     a.download = filename;
     a.click();
     showToast('PV généré : ' + filename, 'success');
+    await marquerGeneration('pv');
 
   } catch(e) {
     console.error('Erreur génération ODT:', e);
