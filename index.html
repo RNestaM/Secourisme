@@ -642,7 +642,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V91</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V92</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -695,7 +695,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V91</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V92</span></div>
     </div>
   </div>
 
@@ -2018,7 +2018,7 @@ async function openFormationModal(id = null) {
   document.getElementById('modal-formation-title').textContent = id ? 'Modifier la formation' : 'Nouvelle formation';
   document.getElementById('f-date').value = '';
   document.getElementById('f-cri').value = '';
-  document.getElementById('f-lieu').value = '';
+  document.getElementById('f-lieu').value = 'GUINGAMP (22)';
   document.getElementById('f-fichier').value = '';
   document.getElementById('f-notes').value = '';
   document.getElementById('f-statut').value = 'A ouvrir';
@@ -2136,13 +2136,13 @@ async function openFormationDetail(id) {
     <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end">
       <div style="display:flex;gap:8px">
         <button class="btn" style="background:rgba(255,255,255,0.18);color:white;border:1px solid rgba(255,255,255,0.3)" onclick="openFormationModal('${f.id}')">✏️ Modifier</button>
-        ${peutCloturer ? `<button class="btn" style="background:#1a7a4a;color:white;font-weight:700" onclick="cloturerFormation('${f.id}')">🔒 Clôturer</button>` : '<span style="opacity:0.6;font-size:13px;padding-top:10px">Formation clôturée</span>'}
+        ${peutCloturer ? `<button class="btn" style="background:#e74c3c;color:white;font-weight:700" onclick="cloturerFormation('${f.id}')">🔒 Clôturer</button>` : '<span style="opacity:0.6;font-size:13px;padding-top:10px">Formation clôturée</span>'}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-        <button class="btn btn-or" style="font-weight:700" onclick="genererPV()">📄 PV</button>
         <button class="btn" style="background:#4a90d9;color:white;font-weight:600" onclick="genererPresence()">📋 Présence</button>
         <button class="btn" style="background:#7b68ee;color:white;font-weight:600" onclick="genererCertifications()">📜 Certifs</button>
         <button class="btn" style="background:#2ecc71;color:white;font-weight:700" onclick="genererPresenceEtCertif()">📋📜 Présence + Certifs</button>
+        <button class="btn btn-or" style="font-weight:700" onclick="genererPV()">📄 PV</button>
       </div>
     </div>
   `;
