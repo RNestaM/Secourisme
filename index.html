@@ -642,7 +642,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V96</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V97</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -695,7 +695,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V96</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V97</span></div>
     </div>
   </div>
 
@@ -2346,10 +2346,12 @@ async function selectParticipant(id, nigend, nom, prenom, unite) {
   let dernierDate = null;
 
   if (typeFormation && id) {
-    // 1. Récupérer données validité du personnel
-    const { data: pers } = await db.from('personnel')
-      .select('psc_date_derniere, psc_validite, sn1_date_derniere, sn1_possible_fc, sn1_validite')
-      .eq('id', id).single();
+    // 1. Récupérer données validité — utiliser le cache allPersonnel si dispo
+    let pers = allPersonnel?.find(x => x.id === id);
+    if (!pers) {
+      const { data: resumeData } = await db.rpc('get_personnel_resume');
+      pers = (resumeData || []).find(x => x.id === id);
+    }
 
     if (pers) {
       const today = new Date().toISOString().slice(0, 10);
