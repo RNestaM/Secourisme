@@ -355,14 +355,14 @@ tbody td {
   font-weight: 600;
   white-space: nowrap;
 }
-.statut-ouvrir { background: #e8ecf5; color: #555; }
-.statut-ouverte { background: #e0f0ff; color: #1a5fa0; }
-.statut-preform { background: #fff3cd; color: #856404; }
-.statut-signature { background: #f8d7da; color: var(--rouge); }
-.statut-postform { background: #d4edda; color: #155724; }
-.statut-effectuee { background: #d1f0e0; color: var(--vert); }
-.statut-cloturee { background: #e2e3e5; color: #383d41; }
-.statut-annulee { background: #f5c6cb; color: #721c24; }
+.statut-ouvrir    { background: #dee2e6; color: #495057; }
+.statut-ouverte   { background: #cce5ff; color: #004085; }
+.statut-preform   { background: #fff3cd; color: #856404; }
+.statut-signature { background: #f8d7da; color: #721c24; }
+.statut-postform  { background: #c3e6cb; color: #155724; }
+.statut-effectuee { background: #b8dfc9; color: #0a3d20; font-weight:700; }
+.statut-cloturee  { background: #6c757d; color: white; }
+.statut-annulee   { background: #343a40; color: #adb5bd; }
 
 .badge-type {
   display: inline-block;
@@ -631,18 +631,28 @@ tbody td {
       <h1>Formation<br>Secourisme</h1>
       <p>Gestion des formations</p>
     </div>
+
     <div class="form-group">
-      <label>Email</label>
-      <input type="email" id="login-email" placeholder="prenom.nom@email.fr" onkeydown="if(event.key==='Enter')doLogin()">
+      <label>Email ou NIGEND</label>
+      <input type="text" id="login-identifier" placeholder="prenom.nom@email.fr ou 123456"
+        onkeydown="if(event.key==='Enter')doLogin()" autocomplete="username">
     </div>
+
     <div class="form-group">
       <label>Mot de passe</label>
-      <input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <input type="password" id="login-password" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter')doLogin()" autocomplete="current-password">
     </div>
+
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <input type="checkbox" id="remember-me" style="cursor:pointer;width:15px;height:15px">
+      <label for="remember-me" style="font-size:13px;color:#888;cursor:pointer;margin:0">Se souvenir de moi</label>
+    </div>
+
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V97</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V100</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -695,7 +705,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V97</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V100</span></div>
     </div>
   </div>
 
@@ -807,8 +817,21 @@ tbody td {
         <button class="btn btn-primary" onclick="openFormationModal()">+ Nouvelle formation</button>
       </div>
 
+      <!-- Légende statuts -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center">
+        <span style="font-size:11px;color:#888;margin-right:4px">Statuts :</span>
+        <span class="badge-statut statut-ouvrir">A ouvrir</span>
+        <span class="badge-statut statut-ouverte">Ouverte</span>
+        <span class="badge-statut statut-preform">Admin - PreForm - OK</span>
+        <span class="badge-statut statut-signature">A la signature</span>
+        <span class="badge-statut statut-postform">Admin - PostForm - OK</span>
+        <span class="badge-statut statut-effectuee">Effectuée</span>
+        <span class="badge-statut statut-cloturee">Clôturée</span>
+        <span class="badge-statut statut-annulee">Annulée</span>
+      </div>
+
       <!-- Barre de filtres commune -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
         <input class="search-input" type="text" id="search-formations"
           placeholder="🔍  Rechercher..."
           oninput="filterFormations()">
@@ -1397,36 +1420,63 @@ function initSupabase() {
 }
 
 // ─── LOGIN ────────────────────────────────────────────────
-async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const pwd = document.getElementById('login-password').value;
-  const err = document.getElementById('login-error');
-  const btn = document.querySelector('.btn-login');
-  err.style.display = 'none';
+function initLoginRemember() {
+  const saved = localStorage.getItem('login_remember');
+  if (!saved) return;
+  try {
+    const { value } = JSON.parse(saved);
+    if (value) {
+      document.getElementById('login-identifier').value = value;
+      document.getElementById('remember-me').checked = true;
+    }
+  } catch(e) {}
+}
 
-  if (!email) { showLoginError('Veuillez saisir votre adresse email.'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showLoginError('Adresse email invalide.'); return; }
-  if (!pwd) { showLoginError('Veuillez saisir votre mot de passe.'); return; }
+async function doLogin() {
+  const identifier = document.getElementById('login-identifier').value.trim();
+  const pwd        = document.getElementById('login-password').value;
+  const btn        = document.querySelector('.btn-login');
+  document.getElementById('login-error').style.display = 'none';
+
+  if (!identifier) { showLoginError('Veuillez saisir votre email ou NIGEND.'); return; }
+  if (!pwd)         { showLoginError('Veuillez saisir votre mot de passe.'); return; }
+
+  // Se souvenir de moi
+  if (document.getElementById('remember-me').checked) {
+    localStorage.setItem('login_remember', JSON.stringify({ value: identifier }));
+  } else {
+    localStorage.removeItem('login_remember');
+  }
 
   btn.textContent = 'Connexion en cours...';
   btn.disabled = true;
 
   try {
     initSupabase();
+
+    let email = identifier;
+
+    // Si pas d'@ → c'est un NIGEND, on cherche l'email correspondant
+    if (!identifier.includes('@')) {
+      const nigend = identifier.replace(/\s/g, '');
+      const { data: formateurs } = await db.from('formateurs')
+        .select('email').ilike('nigend', nigend).limit(1);
+      if (!formateurs || formateurs.length === 0 || !formateurs[0].email) {
+        showLoginError('NIGEND introuvable ou aucun compte associé.'); return;
+      }
+      email = formateurs[0].email;
+    }
+
     const { data, error } = await db.auth.signInWithPassword({ email, password: pwd });
 
     if (error) {
       const code = error.message || '';
-      if (code.includes('Invalid login credentials') || code.includes('invalid_credentials')) {
-        showLoginError('Email ou mot de passe incorrect.');
+      if (code.includes('Invalid login') || code.includes('invalid_credentials')) {
+        showLoginError('Identifiant ou mot de passe incorrect.');
       } else if (code.includes('Email not confirmed')) {
-        showLoginError("Votre compte n'est pas encore confirmé. Vérifiez votre boîte mail.");
-      } else if (code.includes('User not found')) {
-        showLoginError('Aucun compte trouvé avec cet email.');
+        showLoginError("Compte non confirmé. Vérifiez votre boîte mail.");
       } else if (code.includes('Too many requests') || code.includes('rate limit')) {
-        showLoginError('Trop de tentatives. Attendez quelques minutes avant de réessayer.');
-      } else if (code.includes('Network') || code.includes('fetch')) {
-        showLoginError('Erreur réseau. Vérifiez votre connexion internet.');
+        showLoginError('Trop de tentatives. Attendez quelques minutes.');
       } else {
         showLoginError('Erreur : ' + code);
       }
@@ -1835,7 +1885,7 @@ async function loadFormations() {
     const { data, error } = await db
       .from('formations')
       .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom)')
-      .order('date_formation', {ascending: false});
+      .order('date_formation', {ascending: true});
 
     if (error) throw error;
 
@@ -1881,12 +1931,24 @@ function renderFormations(list) {
   document.getElementById('formations-encours-count').textContent = `${enCours.length} formation(s)`;
   document.getElementById('formations-cloturees-count').textContent = `${clotures.length} formation(s)`;
 
+  const statutRowColor = {
+    'A ouvrir':              'background:#f8f9fa',
+    'Ouverte':               'background:#f0f7ff',
+    'Admin - PreForm - OK':  'background:#fffdf0',
+    'A la signature':        'background:#fff5f5',
+    'Admin - PostForm - OK': 'background:#f0fff4',
+    'Effectuée':             'background:#e8f9f0',
+    'Clôturée':              'background:#f4f4f4',
+    'Annulée':               'background:#f0f0f0;opacity:0.7',
+  };
+
   const makeRows = (arr, withCheck) => {
     if (!arr.length) return `<tr><td colspan="10"><div class="empty-state" style="padding:12px"><p style="color:#aaa;font-size:13px">Aucune formation</p></div></td></tr>`;
     return arr.map(f => {
       const nbPart = f._nbParticipants ?? 0;
+      const rowStyle = statutRowColor[f.statut] || '';
       return `
-      <tr onclick="openFormationDetail('${f.id}')">
+      <tr onclick="openFormationDetail('${f.id}')" style="${rowStyle}">
         <td onclick="event.stopPropagation()">
           ${withCheck ? `<input type="checkbox" class="formation-check" value="${f.id}" data-date="${f.date_formation}" onchange="onFormationCheckChange()">` : ''}
         </td>
@@ -2361,9 +2423,9 @@ async function selectParticipant(id, nigend, nom, prenom, unite) {
         if (dernierDate) {
           const annee = parseInt(dernierDate.slice(0, 4));
           if (annee === thisYear)
-            alertes.push({ niveau: 'rouge', msg: `⚠️ Déjà formé PSC en ${thisYear} (${fmtDate(dernierDate)})` });
+            alertes.push({ niveau: 'rouge', msg: `⚠️ Déjà formé PSC en ${thisYear}` });
           else if (annee === thisYear - 1 || annee === thisYear - 2)
-            alertes.push({ niveau: 'orange', msg: `🔶 Formation PSC encore valide — formé en ${annee} (${fmtDate(dernierDate)})` });
+            alertes.push({ niveau: 'orange', msg: `🔶 Formation PSC encore valide — formé en ${annee}` });
         }
         // FC : alerte rouge si validité dépassée
         if (format === 'FC' && pers.psc_validite && pers.psc_validite < today)
@@ -2374,9 +2436,9 @@ async function selectParticipant(id, nigend, nom, prenom, unite) {
         if (dernierDate) {
           const annee = parseInt(dernierDate.slice(0, 4));
           if (annee === thisYear)
-            alertes.push({ niveau: 'rouge', msg: `⚠️ Déjà formé SN1 en ${thisYear} (${fmtDate(dernierDate)})` });
+            alertes.push({ niveau: 'rouge', msg: `⚠️ Déjà formé SN1 en ${thisYear}` });
           else if (annee === thisYear - 1)
-            alertes.push({ niveau: 'orange', msg: `🔶 Formation SN1 encore valide — formé en ${annee} (${fmtDate(dernierDate)})` });
+            alertes.push({ niveau: 'orange', msg: `🔶 Formation SN1 encore valide — formé en ${annee}` });
         }
         // FC : alerte rouge si FC possible dépassée
         if (format === 'FC' && pers.sn1_possible_fc && pers.sn1_possible_fc < today)
@@ -2492,11 +2554,18 @@ async function addAllParticipants() {
   if (_pendingParticipants.length === 0) { showToast('Aucun participant à ajouter', 'error'); return; }
   let added = 0, skipped = 0;
   for (const p of _pendingParticipants) {
+    // Construire le commentaire auto si alertes non conformes
+    const alertesNonConformes = (p.alertes || []).filter(a => a.niveau === 'rouge' || a.niveau === 'rouge_fort' || a.niveau === 'orange');
+    const noteAuto = alertesNonConformes.length > 0
+      ? alertesNonConformes.map(a => a.msg.replace(/[⚠️🔶🚨]/g, '').trim()).join(' / ')
+      : null;
+
     const { error } = await db.from('formation_participants').insert({
       formation_id: currentFormationId,
       personnel_id: p.id,
       present: true,
       resultat: null,
+      notes: noteAuto || null,
     });
     if (error) {
       if (error.code === '23505') skipped++;
@@ -4153,6 +4222,7 @@ function showToast(msg, type='') {
 // ─── INIT ─────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   initSupabase();
+  initLoginRemember();
 });
 
 // Close modal on overlay click
