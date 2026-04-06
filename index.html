@@ -642,7 +642,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V95</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V96</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -695,7 +695,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V95</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V96</span></div>
     </div>
   </div>
 
@@ -2274,16 +2274,28 @@ function renderPendingList() {
     div.innerHTML = '<span style="color:#aaa;font-size:13px">Aucun participant sélectionné</span>';
     return;
   }
-  div.innerHTML = _pendingParticipants.map((p, i) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bordure)">
-      <div style="flex:1">
-        <span style="font-weight:600;font-size:13px">${p.isNew ? '🆕 ' : ''}${p.nom} ${p.prenom}</span>
-        ${p.dernierDate ? `<span style="font-size:11px;color:#888;margin-left:8px">Dernière formation : ${fmtDate(p.dernierDate)}</span>` : ''}
-        ${p.alerte ? `<div style="font-size:12px;color:var(--rouge);margin-top:2px">${p.alerte}</div>` : ''}
+  div.innerHTML = _pendingParticipants.map((p, i) => {
+    const alertesHtml = (p.alertes || []).map(a => {
+      const styles = {
+        rouge_fort: 'background:#c0392b;color:white;font-weight:700;padding:4px 8px;border-radius:5px;font-size:12px;display:block;margin-top:4px',
+        rouge:      'color:var(--rouge);font-size:12px;display:block;margin-top:2px',
+        orange:     'color:#e67e22;font-size:12px;display:block;margin-top:2px',
+      };
+      return `<span style="${styles[a.niveau] || styles.orange}">${a.msg}</span>`;
+    }).join('');
+
+    return `
+    <div style="padding:8px 0;border-bottom:1px solid var(--bordure)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1">
+          <span style="font-weight:600;font-size:13px">${p.isNew ? '🆕 ' : ''}${p.nom} ${p.prenom}</span>
+          ${p.dernierDate ? `<span style="font-size:11px;color:#888;margin-left:8px">Dernière : ${fmtDate(p.dernierDate)}</span>` : '<span style="font-size:11px;color:#aaa;margin-left:8px">Jamais formé</span>'}
+        </div>
+        <button onclick="removePending(${i})" style="background:none;border:none;cursor:pointer;color:#999;font-size:18px;padding:0;line-height:1">×</button>
       </div>
-      <button onclick="removePending(${i})" style="background:none;border:none;cursor:pointer;color:#999;font-size:18px;padding:0;line-height:1">×</button>
-    </div>
-  `).join('');
+      ${alertesHtml}
+    </div>`;
+  }).join('');
 }
 
 function removePending(i) {
@@ -2325,44 +2337,53 @@ async function selectParticipant(id, nigend, nom, prenom, unite) {
   document.getElementById('participant-search-results').style.display = 'none';
   if (_pendingParticipants.find(p => p.id === id)) { showToast('Déjà dans la liste', 'error'); return; }
 
-  // Récupérer la formation en cours pour connaître le type et l'année
   const f = allFormations.find(x => x.id === currentFormationId);
-  const typeFormation = f?.type_formation;
-  const thisYear = new Date().getFullYear().toString();
+  const typeFormation = f?.type_formation; // PSC ou SN1
+  const format = f?.format;               // FI ou FC
+  const thisYear = new Date().getFullYear();
 
-  // Chercher les formations de ce participant pour ce type
-  let alerte = null;
+  let alertes = [];
   let dernierDate = null;
 
   if (typeFormation && id) {
-    const { data: histo } = await db
-      .from('formation_participants')
-      .select('formations(date_formation, type_formation, statut)')
-      .eq('personnel_id', id)
-      .neq('formation_id', currentFormationId); // exclure la formation actuelle
+    // 1. Récupérer données validité du personnel
+    const { data: pers } = await db.from('personnel')
+      .select('psc_date_derniere, psc_validite, sn1_date_derniere, sn1_possible_fc, sn1_validite')
+      .eq('id', id).single();
 
-    if (histo && histo.length > 0) {
-      const memeType = histo
-        .filter(h => h.formations?.type_formation === typeFormation)
-        .map(h => h.formations)
-        .filter(Boolean)
-        .sort((a, b) => b.date_formation.localeCompare(a.date_formation));
+    if (pers) {
+      const today = new Date().toISOString().slice(0, 10);
 
-      if (memeType.length > 0) {
-        dernierDate = memeType[0].date_formation;
-        // Alerte si une formation du même type existe dans l'année en cours
-        const cetteAnnee = memeType.filter(f =>
-          f.date_formation?.startsWith(thisYear) &&
-          !['Annulée'].includes(f.statut)
-        );
-        if (cetteAnnee.length > 0) {
-          alerte = `⚠️ Déjà en formation ${typeFormation} en ${thisYear} (${fmtDate(cetteAnnee[0].date_formation)})`;
+      if (typeFormation === 'PSC') {
+        dernierDate = pers.psc_date_derniere;
+        if (dernierDate) {
+          const annee = parseInt(dernierDate.slice(0, 4));
+          if (annee === thisYear)
+            alertes.push({ niveau: 'rouge', msg: `⚠️ Déjà formé PSC en ${thisYear} (${fmtDate(dernierDate)})` });
+          else if (annee === thisYear - 1 || annee === thisYear - 2)
+            alertes.push({ niveau: 'orange', msg: `🔶 Formation PSC encore valide — formé en ${annee} (${fmtDate(dernierDate)})` });
         }
+        // FC : alerte rouge si validité dépassée
+        if (format === 'FC' && pers.psc_validite && pers.psc_validite < today)
+          alertes.push({ niveau: 'rouge_fort', msg: `🚨 PSC EXPIRÉ depuis le ${fmtDate(pers.psc_validite)} — FC impossible` });
+
+      } else if (typeFormation === 'SN1') {
+        dernierDate = pers.sn1_date_derniere;
+        if (dernierDate) {
+          const annee = parseInt(dernierDate.slice(0, 4));
+          if (annee === thisYear)
+            alertes.push({ niveau: 'rouge', msg: `⚠️ Déjà formé SN1 en ${thisYear} (${fmtDate(dernierDate)})` });
+          else if (annee === thisYear - 1)
+            alertes.push({ niveau: 'orange', msg: `🔶 Formation SN1 encore valide — formé en ${annee} (${fmtDate(dernierDate)})` });
+        }
+        // FC : alerte rouge si FC possible dépassée
+        if (format === 'FC' && pers.sn1_possible_fc && pers.sn1_possible_fc < today)
+          alertes.push({ niveau: 'rouge_fort', msg: `🚨 FC SN1 N'EST PLUS POSSIBLE depuis le ${fmtDate(pers.sn1_possible_fc)}` });
       }
     }
   }
 
-  _pendingParticipants.push({ id, nigend, nom, prenom, unite, isNew: false, alerte, dernierDate });
+  _pendingParticipants.push({ id, nigend, nom, prenom, unite, isNew: false, alertes, dernierDate });
   renderPendingList();
 }
 
