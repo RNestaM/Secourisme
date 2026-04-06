@@ -652,7 +652,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V100</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V102</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -705,7 +705,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V100</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V102</span></div>
     </div>
   </div>
 
@@ -2069,9 +2069,34 @@ async function updateStatutFormation(id, statut, selectEl) {
   const { error } = await db.from('formations').update({ statut }).eq('id', id);
   selectEl.disabled = false;
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+
   // Mettre à jour en mémoire
   const f = allFormations.find(x => x.id === id);
   if (f) f.statut = statut;
+
+  // Changer la couleur de la ligne à la volée
+  const statutRowColor = {
+    'A ouvrir':              'background:#f8f9fa',
+    'Ouverte':               'background:#f0f7ff',
+    'Admin - PreForm - OK':  'background:#fffdf0',
+    'A la signature':        'background:#fff5f5',
+    'Admin - PostForm - OK': 'background:#f0fff4',
+    'Effectuée':             'background:#e8f9f0',
+    'Clôturée':              'background:#f4f4f4',
+    'Annulée':               'background:#f0f0f0;opacity:0.7',
+  };
+  const row = selectEl.closest('tr');
+  if (row) row.setAttribute('style', statutRowColor[statut] || '');
+
+  // Si la formation change de groupe (en cours ↔ clôturée), re-render les deux tableaux
+  const clotures = ['Clôturée','Effectuée','Annulée'];
+  const wasInClotures = clotures.includes(f?._prevStatut);
+  const isNowClotures = clotures.includes(statut);
+  if (wasInClotures !== isNowClotures) {
+    renderFormations(allFormations);
+  }
+  if (f) f._prevStatut = statut;
+
   showToast('Statut mis à jour ✅', 'success');
 }
 
@@ -2233,8 +2258,9 @@ async function loadParticipants(formationId) {
     const r = fp.resultat || '';
     const p = fp.personnel || {};
     const noteShort = fp.notes ? fp.notes.substring(0,25) + (fp.notes.length>25?'…':'') : '';
+    const rowStyle = fp.notes ? 'background:#fff0f0;border-left:3px solid #e74c3c' : '';
     return `
-    <tr data-fp-id="${fp.id}" data-personnel-id="${p.id||''}">
+    <tr data-fp-id="${fp.id}" data-personnel-id="${p.id||''}" style="${rowStyle}">
       <td><input type="checkbox" class="part-checkbox" value="${fp.id}" onchange="updateSelectionCount()"></td>
       <td class="nigend" style="cursor:pointer" onclick="openEditPersonnelInline('${p.id||''}')" title="Modifier">${fmtNigend(p.nigend)||'—'}</td>
       <td style="cursor:pointer" onclick="openEditPersonnelInline('${p.id||''}')" title="Modifier"><strong>${p.nom||'—'}</strong></td>
