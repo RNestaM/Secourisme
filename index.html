@@ -729,7 +729,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V111</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V112</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -784,7 +784,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V111</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V112</span></div>
     </div>
   </div>
 
@@ -1006,7 +1006,7 @@ tbody td {
           <div style="display:flex;gap:8px">
             <button class="btn btn-success btn-sm" onclick="validerSelection()">✅ Valider sélection</button>
             <button class="btn btn-secondary btn-sm" onclick="invaliderSelection()">❌ Invalider sélection</button>
-            <button class="btn btn-secondary btn-sm" onclick="copierNomsGoogleSheets()" title="Copier les noms au format Google Sheets (1 nom par colonne)">📊 Copier noms</button>
+            <button class="btn btn-secondary btn-sm" onclick="copierNomsGoogleSheets()" title="Copier les noms au format Google Sheets (1 nom par colonne)">📊 Copier Nom FC SN1 26</button>
           </div>
         </div>
         <div style="overflow-x:auto">
@@ -2446,7 +2446,7 @@ async function loadParticipants(formationId) {
       </td>
       <td>
         <button class="btn btn-secondary btn-sm" onclick="openCommentModal('${fp.id}','${(p.nom||'')} ${(p.prenom||'')}','${(fp.notes||'').replace(/'/g,"&#39;").replace(/"/g,"&quot;")}')" title="${fp.notes||''}">
-          ${fp.notes ? '💬 ' + noteShort : '➕ Note'}
+          ${fp.notes ? '💬 ' + noteShort : '+'}
         </button>
       </td>
       <td>
@@ -2479,9 +2479,8 @@ async function copierNomsGoogleSheets() {
   // Récupérer les noms depuis les lignes affichées (NOM Prénom)
   const noms = [];
   rows.forEach(row => {
-    const nom    = row.cells[2]?.textContent?.trim() || '';
-    const prenom = row.cells[3]?.textContent?.trim() || '';
-    if (nom) noms.push(`${nom} ${prenom}`.trim());
+    const nom = row.cells[2]?.textContent?.trim() || '';
+    if (nom) noms.push(nom);
   });
 
   if (!noms.length) { showToast('Aucun nom trouvé', 'error'); return; }
