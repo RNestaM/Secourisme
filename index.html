@@ -567,10 +567,87 @@ tbody td {
 .val-none { color: #ccc; }
 
 /* ── RESPONSIVE ──────────────────────────────────── */
+#hamburger {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1001;
+  background: var(--bleu);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+#sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+}
+
 @media (max-width: 768px) {
-  .sidebar { transform: translateX(-240px); transition: transform 0.3s; }
+  #hamburger { display: flex; }
+
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 1000;
+    width: 240px !important;
+  }
   .sidebar.open { transform: translateX(0); }
-  .main { margin-left: 0; padding: 16px; }
+  .sidebar.open ~ #sidebar-overlay,
+  #sidebar-overlay.visible { display: block; }
+
+  .main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding: 16px;
+    padding-top: 60px;
+    box-sizing: border-box;
+  }
+
+  .cards-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Dashboard todo + cards empilés */
+  .main > .page > div[style*="grid-template-columns:1fr 280px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Tables scrollables */
+  .table-wrapper { overflow-x: auto; }
+  table { min-width: 600px; }
+
+  /* Formation header empilé */
+  .formation-header-card {
+    flex-direction: column;
+  }
+  .formation-header-card > div:last-child {
+    align-items: flex-start !important;
+  }
+
+  /* Modals plein écran */
+  .modal-box {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 90vh;
+    overflow-y: auto;
+    margin: 5vh auto;
+  }
+
+  /* Page header empilé */
+  .page-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 }
 
 /* ── FORMATION DETAIL ────────────────────────────── */
@@ -652,11 +729,13 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V108</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V109</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
 <div id="app">
+  <button id="hamburger" onclick="toggleSidebar()">☰</button>
+  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
   <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header" style="text-align:center">
@@ -705,7 +784,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V108</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V109</span></div>
     </div>
   </div>
 
@@ -1574,6 +1653,8 @@ function showPage(name) {
       n.classList.add('active');
     }
   });
+  // Fermer sidebar sur mobile après navigation
+  if (window.innerWidth <= 768) closeSidebar();
   if (name === 'dashboard') { loadDashboard(); loadTodos(); }
   if (name === 'personnel') loadPersonnel();
   if (name === 'formations') loadFormations();
@@ -4341,6 +4422,18 @@ function statutClass(s) {
     'Clôturée': 'statut-cloturee', 'Annulée': 'statut-annulee'
   };
   return map[s] || '';
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('visible');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('visible');
 }
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
