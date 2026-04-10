@@ -729,7 +729,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V109</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V110</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -784,7 +784,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V109</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V110</span></div>
     </div>
   </div>
 
@@ -938,8 +938,8 @@ tbody td {
         <select id="filter-statut" onchange="filterFormations()" style="padding:8px 12px;border:1.5px solid var(--bordure);border-radius:8px;font-size:13px;outline:none">
           <option value="">Tous statuts</option>
           <option>A ouvrir</option><option>Ouverte</option>
-          <option>Admin - PreForm - OK</option><option>A la signature</option>
-          <option>Admin - PostForm - OK</option><option>Effectuée</option>
+          <option>Admin - PreForm - OK</option><option>Effectuée</option>
+          <option>Admin - PostForm - OK</option><option>A la signature</option>
           <option>Clôturée</option><option>Annulée</option>
         </select>
         <button class="btn btn-secondary" id="btn-copier-participants" onclick="copierParticipantsSelectionnes()" style="display:none">📋 Copier participants</button>
@@ -1240,8 +1240,8 @@ tbody td {
           <label>Statut</label>
           <select id="f-statut">
             <option>A ouvrir</option><option>Ouverte</option>
-            <option>Admin - PreForm - OK</option><option>A la signature</option>
-            <option>Admin - PostForm - OK</option><option>Effectuée</option>
+            <option>Admin - PreForm - OK</option><option>Effectuée</option>
+            <option>Admin - PostForm - OK</option><option>A la signature</option>
             <option>Clôturée</option><option>Annulée</option>
           </select>
         </div>
@@ -2097,9 +2097,9 @@ function renderFormations(list) {
     'A ouvrir':              'background:#f8f9fa',
     'Ouverte':               'background:#f0f7ff',
     'Admin - PreForm - OK':  'background:#fffdf0',
-    'A la signature':        'background:#fff5f5',
-    'Admin - PostForm - OK': 'background:#f0fff4',
     'Effectuée':             'background:#e8f9f0',
+    'Admin - PostForm - OK': 'background:#f0fff4',
+    'A la signature':        'background:#fff5f5',
     'Clôturée':              'background:#f4f4f4',
     'Annulée':               'background:#f0f0f0;opacity:0.7',
   };
@@ -2124,7 +2124,7 @@ function renderFormations(list) {
         <td onclick="event.stopPropagation()">
           <select class="statut-select" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--bordure);border-radius:6px;font-family:'Barlow',sans-serif;outline:none;cursor:pointer;background:white"
             onchange="updateStatutFormation('${f.id}', this.value, this)">
-            ${['A ouvrir','Ouverte','Admin - PreForm - OK','A la signature','Admin - PostForm - OK','Effectuée','Clôturée','Annulée']
+            ${['A ouvrir','Ouverte','Admin - PreForm - OK','Effectuée','Admin - PostForm - OK','A la signature','Clôturée','Annulée']
               .map(s => `<option value="${s}" ${s === f.statut ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
         </td>
@@ -2241,9 +2241,9 @@ async function updateStatutFormation(id, statut, selectEl) {
     'A ouvrir':              'background:#f8f9fa',
     'Ouverte':               'background:#f0f7ff',
     'Admin - PreForm - OK':  'background:#fffdf0',
-    'A la signature':        'background:#fff5f5',
-    'Admin - PostForm - OK': 'background:#f0fff4',
     'Effectuée':             'background:#e8f9f0',
+    'Admin - PostForm - OK': 'background:#f0fff4',
+    'A la signature':        'background:#fff5f5',
     'Clôturée':              'background:#f4f4f4',
     'Annulée':               'background:#f0f0f0;opacity:0.7',
   };
@@ -2380,7 +2380,7 @@ async function openFormationDetail(id) {
       <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <select onchange="updateStatutFormation('${f.id}', this.value, this)"
           style="font-size:12px;padding:4px 10px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;background:rgba(255,255,255,0.12);color:white;font-family:'Barlow',sans-serif;outline:none;cursor:pointer">
-          ${['A ouvrir','Ouverte','Admin - PreForm - OK','A la signature','Admin - PostForm - OK','Effectuée','Clôturée','Annulée']
+          ${['A ouvrir','Ouverte','Admin - PreForm - OK','Effectuée','Admin - PostForm - OK','A la signature','Clôturée','Annulée']
             .map(s => `<option value="${s}" ${s === f.statut ? 'selected' : ''} style="color:#333;background:white">${s}</option>`).join('')}
         </select>
         ${f.nom_fichier ? `<span style="opacity:0.7;font-size:13px">📁 ${f.nom_fichier}</span>` : ''}
