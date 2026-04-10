@@ -652,7 +652,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V104</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V106</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -705,7 +705,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V104</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V106</span></div>
     </div>
   </div>
 
@@ -721,9 +721,26 @@ tbody td {
         </div>
         <button class="btn btn-primary" onclick="openFormationModal()">+ Nouvelle formation</button>
       </div>
-      <!-- Cards principales + alertes sur la même ligne -->
-      <div id="dash-cards" class="cards-grid" style="margin-bottom:16px">
-        <div class="card card-stat"><div class="spinner" style="margin:10px auto"></div></div>
+      <!-- Cards + Todo side by side -->
+      <div style="display:grid;grid-template-columns:1fr 280px;gap:16px;margin-bottom:16px;align-items:start">
+        <div>
+          <div id="dash-cards" class="cards-grid">
+            <div class="card card-stat"><div class="spinner" style="margin:10px auto"></div></div>
+          </div>
+        </div>
+        <!-- Todo list -->
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;font-size:13px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+            <span>📝 À faire</span>
+            <span id="todo-count" style="font-size:11px;color:#aaa"></span>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:10px">
+            <input type="text" id="todo-input" placeholder="Nouvelle tâche..." onkeydown="if(event.key==='Enter')addTodo()"
+              style="flex:1;padding:7px 10px;border:1.5px solid var(--bordure);border-radius:7px;font-family:'Barlow',sans-serif;font-size:13px;outline:none">
+            <button onclick="addTodo()" class="btn btn-primary btn-sm" style="padding:7px 10px">+</button>
+          </div>
+          <div id="todo-list" style="max-height:280px;overflow-y:auto"></div>
+        </div>
       </div>
 
       <!-- Listes SN1 urgents/perdus -->
@@ -1539,7 +1556,7 @@ async function showApp() {
     document.getElementById('user-avatar').textContent = 'DEV';
   }
   await refreshUnitesDatalist();
-  try { loadDashboard(); } catch(e) { console.error('Dashboard error:', e); }
+  try { loadDashboard(); loadTodos(); } catch(e) { console.error('Dashboard error:', e); }
 }
 
 async function doLogout() {
@@ -1557,7 +1574,7 @@ function showPage(name) {
       n.classList.add('active');
     }
   });
-  if (name === 'dashboard') loadDashboard();
+  if (name === 'dashboard') { loadDashboard(); loadTodos(); }
   if (name === 'personnel') loadPersonnel();
   if (name === 'formations') loadFormations();
   if (name === 'stats') loadStats();
@@ -1565,6 +1582,70 @@ function showPage(name) {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────
+// ─── TODO LIST ────────────────────────────────────────────
+let _todos = [];
+
+async function loadTodos() {
+  if (!currentFormateur?.id) return;
+  const { data } = await db.from('todos')
+    .select('*')
+    .eq('formateur_id', currentFormateur.id)
+    .order('position')
+    .order('created_at');
+  _todos = data || [];
+  renderTodos(_todos);
+}
+
+function renderTodos(todos) {
+  const list = document.getElementById('todo-list');
+  const count = document.getElementById('todo-count');
+  if (!list) return;
+  const remaining = todos.filter(t => !t.done).length;
+  if (count) count.textContent = remaining > 0 ? `${remaining} restante(s)` : todos.length ? 'Tout fait ✅' : '';
+  if (!todos.length) {
+    list.innerHTML = '<p style="color:#ccc;font-size:13px;text-align:center;padding:12px 0">Aucune tâche</p>';
+    return;
+  }
+  list.innerHTML = todos.map((t, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--bordure)">
+      <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTodo('${t.id}',${!t.done})" style="cursor:pointer;width:15px;height:15px;flex-shrink:0">
+      <span style="flex:1;font-size:13px;${t.done ? 'text-decoration:line-through;color:#bbb' : ''}">${t.text}</span>
+      <button onclick="deleteTodo('${t.id}')" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:16px;padding:0;line-height:1;flex-shrink:0">×</button>
+    </div>
+  `).join('');
+}
+
+async function addTodo() {
+  const input = document.getElementById('todo-input');
+  const text = input.value.trim();
+  if (!text || !currentFormateur?.id) return;
+  input.value = '';
+  const { data, error } = await db.from('todos').insert({
+    formateur_id: currentFormateur.id,
+    text,
+    done: false,
+    position: _todos.length,
+  }).select().single();
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  _todos.push(data);
+  renderTodos(_todos);
+}
+
+async function toggleTodo(id, done) {
+  const { error } = await db.from('todos').update({ done }).eq('id', id);
+  if (error) { showToast('Erreur', 'error'); return; }
+  const t = _todos.find(x => x.id === id);
+  if (t) t.done = done;
+  renderTodos(_todos);
+}
+
+async function deleteTodo(id) {
+  const { error } = await db.from('todos').delete().eq('id', id);
+  if (error) { showToast('Erreur', 'error'); return; }
+  _todos = _todos.filter(x => x.id !== id);
+  renderTodos(_todos);
+}
+
 async function loadDashboard() {
   if (!db) return;
 
@@ -2113,11 +2194,9 @@ async function openFormationModal(id = null) {
   document.getElementById('f-format').value = 'FC';
   document.getElementById('f-moment').value = 'Après-midi';
 
-  // Charger la liste des formateurs actifs
-  if (allFormateurs.length === 0) {
-    const { data } = await db.from('formateurs').select('*').eq('actif', true).order('nom');
-    allFormateurs = data || [];
-  }
+  // Toujours recharger la liste des formateurs actifs
+  const { data: fmtData } = await db.from('formateurs').select('*').eq('actif', true).order('nom');
+  allFormateurs = fmtData || [];
   const selResp = document.getElementById('f-responsable');
   selResp.innerHTML = '<option value="">— Choisir —</option>' +
     allFormateurs.map(f => `<option value="${f.id}">${f.nom} ${f.prenom}</option>`).join('');
@@ -2129,7 +2208,10 @@ async function openFormationModal(id = null) {
     </label>`).join('');
 
   if (id) {
-    const f = allFormations.find(x => x.id === id);
+    // Toujours recharger depuis Supabase pour avoir toutes les données fraîches
+    const { data: f } = await db.from('formations')
+      .select('*')
+      .eq('id', id).single();
     if (f) {
       document.getElementById('f-date').value = f.date_formation || '';
       document.getElementById('f-type').value = f.type_formation || 'PSC';
@@ -2142,12 +2224,11 @@ async function openFormationModal(id = null) {
       document.getElementById('f-notes').value = f.notes || '';
       if (f.responsable_id) selResp.value = f.responsable_id;
       // Cocher les formateurs additionnels
-      if (f._formateurs_ids) {
-        f._formateurs_ids.forEach(fid => {
-          const cb = checksDiv.querySelector(`input[value="${fid}"]`);
-          if (cb) cb.checked = true;
-        });
-      }
+      const formateursIds = f.formateurs_ids || f._formateurs_ids || [];
+      formateursIds.forEach(fid => {
+        const cb = checksDiv.querySelector(`input[value="${fid}"]`);
+        if (cb) cb.checked = true;
+      });
     }
   }
   openModal('modal-formation');
@@ -2215,14 +2296,13 @@ async function openFormationDetail(id) {
         ${f.moment || ''} · N° CRI ${f.numero_cri || '—'} · ${f.lieu || ''}
         ${f.responsable ? ' · ' + f.responsable.prenom + ' ' + f.responsable.nom : ''}
       </div>
-      <div style="margin-top:10px">
-        <span class="badge-statut" style="background:rgba(255,255,255,0.2);color:white">${f.statut}</span>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <select onchange="updateStatutFormation('${f.id}', this.value, this)"
-          style="margin-left:8px;font-size:12px;padding:3px 8px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;background:rgba(255,255,255,0.12);color:white;font-family:'Barlow',sans-serif;outline:none;cursor:pointer">
+          style="font-size:12px;padding:4px 10px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;background:rgba(255,255,255,0.12);color:white;font-family:'Barlow',sans-serif;outline:none;cursor:pointer">
           ${['A ouvrir','Ouverte','Admin - PreForm - OK','A la signature','Admin - PostForm - OK','Effectuée','Clôturée','Annulée']
             .map(s => `<option value="${s}" ${s === f.statut ? 'selected' : ''} style="color:#333;background:white">${s}</option>`).join('')}
         </select>
-        ${f.nom_fichier ? `<span style="margin-left:8px;opacity:0.7;font-size:13px">📁 ${f.nom_fichier}</span>` : ''}
+        ${f.nom_fichier ? `<span style="opacity:0.7;font-size:13px">📁 ${f.nom_fichier}</span>` : ''}
       </div>
       <div id="docs-generes-info" style="margin-top:8px"></div>
     </div>
