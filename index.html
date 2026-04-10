@@ -729,7 +729,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V110</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V111</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -784,7 +784,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V110</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V111</span></div>
     </div>
   </div>
 
@@ -1006,6 +1006,7 @@ tbody td {
           <div style="display:flex;gap:8px">
             <button class="btn btn-success btn-sm" onclick="validerSelection()">✅ Valider sélection</button>
             <button class="btn btn-secondary btn-sm" onclick="invaliderSelection()">❌ Invalider sélection</button>
+            <button class="btn btn-secondary btn-sm" onclick="copierNomsGoogleSheets()" title="Copier les noms au format Google Sheets (1 nom par colonne)">📊 Copier noms</button>
           </div>
         </div>
         <div style="overflow-x:auto">
@@ -2469,6 +2470,25 @@ function updateSelectionCount() {
 
 function getSelectedFpIds() {
   return [...document.querySelectorAll('.part-checkbox:checked')].map(cb => cb.value);
+}
+
+async function copierNomsGoogleSheets() {
+  const rows = document.querySelectorAll('#tbody-participants tr[data-fp-id]');
+  if (!rows.length) { showToast('Aucun participant', 'error'); return; }
+
+  // Récupérer les noms depuis les lignes affichées (NOM Prénom)
+  const noms = [];
+  rows.forEach(row => {
+    const nom    = row.cells[2]?.textContent?.trim() || '';
+    const prenom = row.cells[3]?.textContent?.trim() || '';
+    if (nom) noms.push(`${nom} ${prenom}`.trim());
+  });
+
+  if (!noms.length) { showToast('Aucun nom trouvé', 'error'); return; }
+
+  // Format : 1 nom par colonne séparé par tabulation → coller dans Google Sheets
+  await navigator.clipboard.writeText(noms.join('\t'));
+  showToast(`${noms.length} nom(s) copiés — colle en C3 dans Google Sheets ✅`, 'success');
 }
 
 async function validerSelection() {
