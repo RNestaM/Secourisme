@@ -652,7 +652,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V107</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V108</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -705,7 +705,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V107</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V108</span></div>
     </div>
   </div>
 
@@ -1428,8 +1428,8 @@ function initSupabase() {
   const key = SB_KEY;
   db = window.supabase.createClient(url, key, {
     auth: {
-      autoRefreshToken: false,
-      persistSession: false,
+      autoRefreshToken: true,
+      persistSession: true,
       detectSessionInUrl: false
     }
   });
