@@ -1441,7 +1441,10 @@ tbody td {
           <input type="text" id="new-p-unite" class="search-input" style="width:100%" list="unite-list" placeholder="BR GUINGAMP">
         </div>
         <div id="new-p-existing-alert" style="display:none;background:#fff3cd;border-radius:6px;padding:8px 12px;font-size:13px;margin-bottom:8px;color:#856404"></div>
-        <button class="btn btn-success btn-sm" onclick="addNewPersonnelToList()">➕ Ajouter à la liste</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-success btn-sm" onclick="addNewPersonnelToList()">➕ Ajouter à la liste</button>
+          <button class="btn btn-secondary btn-sm" onclick="clearNewPersonnelForm()" title="Vider le formulaire">🗑 Vider</button>
+        </div>
       </div>
 
     </div>
@@ -2759,6 +2762,15 @@ async function addNewPersonnelToList() {
   delete nigendEl.dataset.existingId;
   document.getElementById('new-p-existing-alert').style.display = 'none';
   renderPendingList();
+}
+
+function clearNewPersonnelForm() {
+  ['new-p-nigend','new-p-nom','new-p-prenom','new-p-ddn','new-p-lieu','new-p-unite'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('new-p-sexe').value = 'M';
+  delete document.getElementById('new-p-nigend').dataset.existingId;
+  document.getElementById('new-p-existing-alert').style.display = 'none';
 }
 
 async function addAllParticipants() {
