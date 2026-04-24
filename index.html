@@ -254,8 +254,8 @@ nav { flex: 1; padding: 16px 0; overflow-y: auto; }
   margin-bottom: 28px;
 }
 .card-stat {
-  min-width: 160px;
-  flex: 0 1 200px;
+  min-width: 100px;
+  flex: 0 1 130px;
 }
 .card {
   background: white;
@@ -265,26 +265,27 @@ nav { flex: 1; padding: 16px 0; overflow-y: auto; }
 }
 .card-stat {
   text-align: center;
+  padding: 12px 10px;
 }
 .card-stat .value {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 42px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--bleu);
   line-height: 1;
 }
 .card-stat .label {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: #888;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 .card-stat .sub {
-  font-size: 11px;
+  font-size: 10px;
   color: #aaa;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* ── TABLE ──────────────────────────────────────── */
@@ -729,7 +730,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V112</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V114</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -784,7 +785,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V112</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V114</span></div>
     </div>
   </div>
 
@@ -827,30 +828,38 @@ tbody td {
 
       <div class="table-wrapper" style="margin-bottom:16px">
         <div class="table-toolbar">
-          <strong style="font-size:15px">🟢 Formations en cours</strong>
+          <strong style="font-size:15px">🟢 En cours</strong>
           <button class="btn btn-secondary btn-sm" onclick="showPage('formations')">Voir tout →</button>
         </div>
         <table>
-          <thead>
-            <tr>
-              <th>Date</th><th>Type</th><th>Format</th><th>Moment</th>
-              <th>Formateur</th><th>N° CRI</th><th>Statut</th><th></th>
-            </tr>
-          </thead>
+          <thead><tr><th>Date</th><th>Type</th><th>Format</th><th>Moment</th><th>Formateur</th><th>N° CRI</th><th>Statut</th><th></th></tr></thead>
           <tbody id="dash-formations-encours"></tbody>
+        </table>
+      </div>
+      <div class="table-wrapper" style="margin-bottom:16px">
+        <div class="table-toolbar">
+          <strong style="font-size:15px">✅ Effectuées</strong>
+        </div>
+        <table>
+          <thead><tr><th>Date</th><th>Type</th><th>Format</th><th>Moment</th><th>Formateur</th><th>N° CRI</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="dash-formations-effectuees"></tbody>
+        </table>
+      </div>
+      <div class="table-wrapper" style="margin-bottom:16px">
+        <div class="table-toolbar">
+          <strong style="font-size:15px">✍️ À la signature</strong>
+        </div>
+        <table>
+          <thead><tr><th>Date</th><th>Type</th><th>Format</th><th>Moment</th><th>Formateur</th><th>N° CRI</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="dash-formations-signature"></tbody>
         </table>
       </div>
       <div class="table-wrapper">
         <div class="table-toolbar">
-          <strong style="font-size:15px">🔒 Formations clôturées / effectuées</strong>
+          <strong style="font-size:15px">🔒 Clôturées</strong>
         </div>
         <table>
-          <thead>
-            <tr>
-              <th>Date</th><th>Type</th><th>Format</th><th>Moment</th>
-              <th>Formateur</th><th>N° CRI</th><th>Statut</th><th></th>
-            </tr>
-          </thead>
+          <thead><tr><th>Date</th><th>Type</th><th>Format</th><th>Moment</th><th>Formateur</th><th>N° CRI</th><th>Statut</th><th></th></tr></thead>
           <tbody id="dash-formations-cloturees"></tbody>
         </table>
       </div>
@@ -966,10 +975,52 @@ tbody td {
         </div>
       </div>
 
+      <!-- Tableau Effectuées -->
+      <div class="table-wrapper" style="margin-bottom:20px">
+        <div class="table-toolbar">
+          <strong style="font-size:15px">✅ Effectuées</strong>
+          <span id="formations-effectuees-count" style="font-size:13px;color:#888"></span>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:32px"></th>
+                <th>Date</th><th>Type</th><th>Format</th><th>Moment</th>
+                <th>Formateur</th><th>N° CRI</th><th>Participants</th>
+                <th>Statut</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-formations-effectuees"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tableau À la signature -->
+      <div class="table-wrapper" style="margin-bottom:20px">
+        <div class="table-toolbar">
+          <strong style="font-size:15px">✍️ À la signature</strong>
+          <span id="formations-signature-count" style="font-size:13px;color:#888"></span>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:32px"></th>
+                <th>Date</th><th>Type</th><th>Format</th><th>Moment</th>
+                <th>Formateur</th><th>N° CRI</th><th>Participants</th>
+                <th>Statut</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-formations-signature"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Tableau Clôturées -->
       <div class="table-wrapper">
         <div class="table-toolbar">
-          <strong style="font-size:15px">🔒 Clôturées / Effectuées</strong>
+          <strong style="font-size:15px">🔒 Clôturées</strong>
           <span id="formations-cloturees-count" style="font-size:13px;color:#888"></span>
         </div>
         <div style="overflow-x:auto">
@@ -1185,6 +1236,34 @@ tbody td {
         </p>
       </div>
 
+      <!-- Nommage automatique fichiers -->
+      <div class="config-section" id="cfg-nommage-section">
+        <h3>📁 Nommage automatique des fichiers</h3>
+        <p style="font-size:13px;color:#888;margin-bottom:6px">
+          Définissez un patron de nommage pour chaque type de formation. Variables disponibles :
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+          ${['NumCRI','AnneeForm','MoisForm','JourForm','Type','Format'].map(v =>
+            `<code style="background:#e8f0fe;color:var(--bleu);padding:2px 8px;border-radius:4px;font-size:12px;font-family:monospace">{${v}}</code>`
+          ).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:10px 14px;align-items:center;max-width:640px">
+          <label style="font-size:13px;font-weight:600">SN1 — FC</label>
+          <input type="text" id="pattern-SN1-FC" class="search-input" style="width:100%" placeholder="{NumCRI}_FC_SauveTaGeN1_{AnneeForm}{MoisForm}{JourForm}">
+          <label style="font-size:13px;font-weight:600">SN1 — FI</label>
+          <input type="text" id="pattern-SN1-FI" class="search-input" style="width:100%" placeholder="{NumCRI}_FI_SauveTaGeN1_{AnneeForm}{MoisForm}{JourForm}">
+          <label style="font-size:13px;font-weight:600">PSC — FC</label>
+          <input type="text" id="pattern-PSC-FC" class="search-input" style="width:100%" placeholder="{NumCRI}_FC_PSC_{AnneeForm}{MoisForm}{JourForm}">
+          <label style="font-size:13px;font-weight:600">PSC — FI</label>
+          <input type="text" id="pattern-PSC-FI" class="search-input" style="width:100%" placeholder="{NumCRI}_FI_PSC_{AnneeForm}{MoisForm}{JourForm}">
+        </div>
+        <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
+          <button class="btn btn-primary" onclick="saveNomFichierPatterns()">💾 Enregistrer les patrons</button>
+          <span id="pattern-save-msg" style="font-size:13px;color:var(--vert);display:none">✅ Patrons enregistrés</span>
+        </div>
+        <p style="font-size:11px;color:#aaa;margin-top:10px">Le nom fichier est auto-rempli à la création. En modification, cliquez ↺ dans le formulaire pour régénérer.</p>
+      </div>
+
       <div class="config-section">
         <h3>⬇️ Export des données</h3>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -1211,7 +1290,7 @@ tbody td {
       <div class="form-row">
         <div class="form-group">
           <label>Date *</label>
-          <input type="date" id="f-date" class="search-input" style="width:100%">
+          <input type="date" id="f-date" class="search-input" style="width:100%" oninput="autoFillNomFichier()">
         </div>
         <div class="form-group">
           <label>Moment</label>
@@ -1223,14 +1302,14 @@ tbody td {
       <div class="form-row">
         <div class="form-group">
           <label>Type *</label>
-          <select id="f-type">
+          <select id="f-type" onchange="autoFillNomFichier()">
             <option value="PSC">PSC</option>
             <option value="SN1">SN1</option>
           </select>
         </div>
         <div class="form-group">
           <label>Format *</label>
-          <select id="f-format">
+          <select id="f-format" onchange="autoFillNomFichier()">
             <option value="FI">FI — Formation Initiale</option>
             <option value="FC">FC — Formation Continue</option>
           </select>
@@ -1248,7 +1327,7 @@ tbody td {
         </div>
         <div class="form-group">
           <label>N° CRI</label>
-          <input type="number" id="f-cri" class="search-input" style="width:100%" placeholder="121">
+          <input type="number" id="f-cri" class="search-input" style="width:100%" placeholder="121" oninput="autoFillNomFichier()">
         </div>
       </div>
       <!-- Formateurs -->
@@ -1269,7 +1348,10 @@ tbody td {
         </div>
         <div class="form-group">
           <label>Nom fichier</label>
-          <input type="text" id="f-fichier" class="search-input" style="width:100%" placeholder="121_FC_SN1_20260330">
+          <div style="display:flex;gap:6px">
+            <input type="text" id="f-fichier" class="search-input" style="flex:1" placeholder="121_FC_SN1_20260330">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="regenNomFichier()" title="Régénérer le nom depuis le patron">↺</button>
+          </div>
         </div>
       </div>
       <div class="form-group">
@@ -1639,6 +1721,7 @@ async function showApp() {
     document.getElementById('user-avatar').textContent = 'DEV';
   }
   await refreshUnitesDatalist();
+  loadNomFichierPatterns().catch(() => {}); // charger les patrons en arrière-plan
   try { loadDashboard(); loadTodos(); } catch(e) { console.error('Dashboard error:', e); }
 }
 
@@ -1829,8 +1912,6 @@ async function loadDashboard() {
     .select('*, responsable:formateurs!formations_responsable_id_fkey(nom, prenom)')
     .order('date_formation', {ascending: false});
 
-  const cloturees = ['Clôturée','Effectuée','Annulée'];
-
   function renderDashFormations(list, tbodyId) {
     const tbody = document.getElementById(tbodyId);
     if (!list || !list.length) {
@@ -1853,10 +1934,14 @@ async function loadDashboard() {
     }).join('');
   }
 
-  const enCours  = (recent || []).filter(f => !cloturees.includes(f.statut));
-  const clotures = (recent || []).filter(f =>  cloturees.includes(f.statut));
-  renderDashFormations(enCours,  'dash-formations-encours');
-  renderDashFormations(clotures, 'dash-formations-cloturees');
+  const enCours   = (recent || []).filter(f => ['A ouvrir','Ouverte','Admin - PreForm - OK'].includes(f.statut));
+  const effectuees= (recent || []).filter(f => ['Effectuée','Admin - PostForm - OK'].includes(f.statut));
+  const signature = (recent || []).filter(f => f.statut === 'A la signature');
+  const clotures  = (recent || []).filter(f => ['Clôturée','Annulée'].includes(f.statut));
+  renderDashFormations(enCours,   'dash-formations-encours');
+  renderDashFormations(effectuees,'dash-formations-effectuees');
+  renderDashFormations(signature, 'dash-formations-signature');
+  renderDashFormations(clotures,  'dash-formations-cloturees');
 }
 
 // ─── PERSONNEL ────────────────────────────────────────────
@@ -2045,6 +2130,8 @@ async function deletePersonnel(id) {
 async function loadFormations() {
   if (!db) return;
   document.getElementById('tbody-formations-encours').innerHTML = '<tr><td colspan="10"><div class="loading"><div class="spinner"></div> Chargement...</div></td></tr>';
+  document.getElementById('tbody-formations-effectuees').innerHTML = '';
+  document.getElementById('tbody-formations-signature').innerHTML = '';
   document.getElementById('tbody-formations-cloturees').innerHTML = '';
 
   try {
@@ -2088,14 +2175,21 @@ function filterFormations() {
   renderFormations(res);
 }
 
-const STATUTS_CLOTURES = ['Clôturée','Effectuée','Annulée'];
+const STATUTS_ENCOURS    = ['A ouvrir','Ouverte','Admin - PreForm - OK'];
+const STATUTS_EFFECTUEES = ['Effectuée','Admin - PostForm - OK'];
+const STATUTS_SIGNATURE  = ['A la signature'];
+const STATUTS_CLOTURES   = ['Clôturée','Annulée'];
 
 function renderFormations(list) {
-  const enCours  = list.filter(f => !STATUTS_CLOTURES.includes(f.statut));
-  const clotures = list.filter(f =>  STATUTS_CLOTURES.includes(f.statut));
+  const enCours   = list.filter(f => STATUTS_ENCOURS.includes(f.statut));
+  const effectuees= list.filter(f => STATUTS_EFFECTUEES.includes(f.statut));
+  const signature = list.filter(f => STATUTS_SIGNATURE.includes(f.statut));
+  const clotures  = list.filter(f => STATUTS_CLOTURES.includes(f.statut));
 
-  document.getElementById('formations-encours-count').textContent = `${enCours.length} formation(s)`;
-  document.getElementById('formations-cloturees-count').textContent = `${clotures.length} formation(s)`;
+  document.getElementById('formations-encours-count').textContent   = `${enCours.length} formation(s)`;
+  document.getElementById('formations-effectuees-count').textContent = `${effectuees.length} formation(s)`;
+  document.getElementById('formations-signature-count').textContent  = `${signature.length} formation(s)`;
+  document.getElementById('formations-cloturees-count').textContent  = `${clotures.length} formation(s)`;
 
   const statutRowColor = {
     'A ouvrir':              'background:#f8f9fa',
@@ -2140,8 +2234,10 @@ function renderFormations(list) {
     }).join('');
   };
 
-  document.getElementById('tbody-formations-encours').innerHTML  = makeRows(enCours,  true);
-  document.getElementById('tbody-formations-cloturees').innerHTML = makeRows(clotures, false);
+  document.getElementById('tbody-formations-encours').innerHTML   = makeRows(enCours,   true);
+  document.getElementById('tbody-formations-effectuees').innerHTML = makeRows(effectuees, false);
+  document.getElementById('tbody-formations-signature').innerHTML  = makeRows(signature,  false);
+  document.getElementById('tbody-formations-cloturees').innerHTML  = makeRows(clotures,   false);
 }
 
 function toggleAllFormations(checked) {
@@ -3048,11 +3144,14 @@ async function loadConfig() {
   await renderUnitesList();
   await refreshUnitesDatalist();
   loadTemplatesList();
+  await loadNomFichierPatterns();
   if (currentFormateur?.is_admin) {
     document.getElementById('cfg-admin-section').style.display = 'block';
+    document.getElementById('cfg-nommage-section').style.display = 'block';
     loadFormateurs();
   } else {
     document.getElementById('cfg-admin-section').style.display = 'none';
+    document.getElementById('cfg-nommage-section').style.display = 'block';
   }
 }
 
@@ -4289,7 +4388,8 @@ async function genererPV() {
     const nbPresents = participants.length;
     const nbRecus = participants.filter(p => p.resultat === 'Validé').length;
     const resp = formation.responsable;
-    const qualif = resp?.qualification || (type === 'SN1' ? 'F SauveTaGe' : 'FPSC');
+    const isSN1 = type === 'SN1';
+    const qualif = isSN1 ? 'F SauveTaGe' : (resp?.qualification || 'FPSC');
     const lieuVille = lieu.split('(')[0].trim().toUpperCase();
     const lieuDept = lieu.match(/\((\d+)\)/)?.[1] || '56';
     const dateFormation = `${dd}/${dm}/${dy}`;
@@ -4308,7 +4408,7 @@ async function genererPV() {
       '{RespQualif}':    escXml(qualif),
       '{FormNom}':       escXml(formation.formateur_nom || ''),
       '{FormPrenom}':    escXml(formation.formateur_prenom || ''),
-      '{FormQualif}':    escXml(formation.formateur_qualif || ''),
+      '{FormQualif}':    escXml(isSN1 ? 'F SauveTaGe' : (formation.formateur_qualif || '')),
     };
     for (const [marker, value] of Object.entries(markers)) {
       xml = xml.replaceAll(marker, value);
@@ -4410,6 +4510,82 @@ async function deleteTemplate(filename) {
   if (error) { showToast('Erreur suppression', 'error'); return; }
   showToast('Template supprimé', 'success');
   loadTemplatesList();
+}
+
+// ─── NOMMAGE AUTOMATIQUE FICHIERS ─────────────────────────
+let nomFichierPatrons = {};
+
+const NOM_FICHIER_KEYS = ['SN1-FC','SN1-FI','PSC-FC','PSC-FI'];
+const NOM_FICHIER_DEFAULTS = {
+  'SN1-FC': '{NumCRI}_FC_SauveTaGeN1_{AnneeForm}{MoisForm}{JourForm}',
+  'SN1-FI': '{NumCRI}_FI_SauveTaGeN1_{AnneeForm}{MoisForm}{JourForm}',
+  'PSC-FC': '{NumCRI}_FC_PSC_{AnneeForm}{MoisForm}{JourForm}',
+  'PSC-FI': '{NumCRI}_FI_PSC_{AnneeForm}{MoisForm}{JourForm}',
+};
+
+async function loadNomFichierPatterns() {
+  const { data } = await db.from('config')
+    .select('key, value')
+    .in('key', NOM_FICHIER_KEYS.map(k => 'nom_fichier_patron_' + k));
+  nomFichierPatrons = { ...NOM_FICHIER_DEFAULTS };
+  (data || []).forEach(row => {
+    const k = row.key.replace('nom_fichier_patron_', '');
+    if (row.value) nomFichierPatrons[k] = row.value;
+  });
+  // Peupler les inputs dans config si la page est visible
+  NOM_FICHIER_KEYS.forEach(k => {
+    const el = document.getElementById('pattern-' + k);
+    if (el) el.value = nomFichierPatrons[k] || '';
+  });
+}
+
+async function saveNomFichierPatterns() {
+  const upserts = NOM_FICHIER_KEYS.map(k => ({
+    key: 'nom_fichier_patron_' + k,
+    value: document.getElementById('pattern-' + k)?.value?.trim() || NOM_FICHIER_DEFAULTS[k],
+  }));
+  const { error } = await db.from('config').upsert(upserts, { onConflict: 'key' });
+  if (error) { showToast('Erreur enregistrement : ' + error.message, 'error'); return; }
+  await loadNomFichierPatterns();
+  const msg = document.getElementById('pattern-save-msg');
+  msg.style.display = '';
+  setTimeout(() => { msg.style.display = 'none'; }, 3000);
+}
+
+function resolveNomFichierPattern(pattern, cri, date, type, format) {
+  if (!pattern) return '';
+  const [annee, mois, jour] = date ? date.split('-') : ['','',''];
+  return pattern
+    .replace(/\{NumCRI\}/g,    cri   || '')
+    .replace(/\{AnneeForm\}/g, annee || '')
+    .replace(/\{MoisForm\}/g,  mois  || '')
+    .replace(/\{JourForm\}/g,  jour  || '')
+    .replace(/\{Type\}/g,      type  || '')
+    .replace(/\{Format\}/g,    format|| '');
+}
+
+function autoFillNomFichier() {
+  // Seulement en mode création (pas d'editingFormationId) OU si le champ est vide
+  const fichierEl = document.getElementById('f-fichier');
+  if (!fichierEl) return;
+  // En mode édition on ne touche pas au champ sauf si déjà vide
+  if (editingFormationId && fichierEl.value.trim()) return;
+  regenNomFichier(/* silently */ true);
+}
+
+function regenNomFichier(onlyIfEmpty = false) {
+  const fichierEl = document.getElementById('f-fichier');
+  if (!fichierEl) return;
+  if (onlyIfEmpty && fichierEl.value.trim()) return;
+  const cri    = document.getElementById('f-cri')?.value?.trim() || '';
+  const date   = document.getElementById('f-date')?.value || '';
+  const type   = document.getElementById('f-type')?.value || '';
+  const format = document.getElementById('f-format')?.value || '';
+  const key    = type + '-' + format;
+  const pattern = nomFichierPatrons[key] || NOM_FICHIER_DEFAULTS[key] || '';
+  if (!pattern) return;
+  const result = resolveNomFichierPattern(pattern, cri, date, type, format);
+  fichierEl.value = result;
 }
 // ─── HELPERS ──────────────────────────────────────────────
 function fmtDate(d) {
