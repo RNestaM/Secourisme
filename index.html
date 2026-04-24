@@ -730,7 +730,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V114</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V115</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -785,7 +785,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V114</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V115</span></div>
     </div>
   </div>
 
@@ -1853,34 +1853,39 @@ async function loadDashboard() {
   );
 
   document.getElementById('dash-cards').innerHTML = `
-    <div class="card card-stat">
-      <div class="value">${nbPersonnel ?? 0}</div>
-      <div class="label">Agents en base</div>
-    </div>
-    <div class="card card-stat">
-      <div class="value">${nbFormations ?? 0}</div>
-      <div class="label">Formations totales</div>
-    </div>
-    <div class="card card-stat">
-      <div class="value">${nbEnCours ?? 0}</div>
-      <div class="label">En cours</div>
-      <div class="sub">À traiter</div>
-    </div>
-    <div class="card card-stat">
-      <div class="value">${nbAnnee ?? 0}</div>
-      <div class="label">Cette année</div>
-      <div class="sub">${thisYear}</div>
-    </div>
-    <div style="width:100%;flex-basis:100%;height:0;margin:0"></div>
-    <div class="card card-stat" style="border-top:3px solid var(--bleu)">
-      <div class="value" style="color:var(--bleu)">${pscExpireAnnee.length}</div>
-      <div class="label">PSC expirent en ${thisYear}</div>
-      <div class="sub">À renouveler avant le 31/12</div>
-    </div>
-    <div class="card card-stat" style="border-top:3px solid var(--or)">
-      <div class="value" style="color:var(--or)">${sn1ExpireAnnee.length}</div>
-      <div class="label">SN1 expirent en ${thisYear}</div>
-      <div class="sub">À renouveler avant le 31/12</div>
+    <div style="display:flex;flex-direction:column;gap:12px;width:100%">
+      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap">
+        <div class="card card-stat">
+          <div class="value">${nbPersonnel ?? 0}</div>
+          <div class="label">Agents en base</div>
+        </div>
+        <div class="card card-stat">
+          <div class="value">${nbFormations ?? 0}</div>
+          <div class="label">Formations totales</div>
+        </div>
+        <div class="card card-stat">
+          <div class="value">${nbEnCours ?? 0}</div>
+          <div class="label">En cours</div>
+          <div class="sub">À traiter</div>
+        </div>
+        <div class="card card-stat">
+          <div class="value">${nbAnnee ?? 0}</div>
+          <div class="label">Cette année</div>
+          <div class="sub">${thisYear}</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-start;gap:12px;flex-wrap:wrap">
+        <div class="card card-stat" style="border-top:3px solid var(--bleu)">
+          <div class="value" style="color:var(--bleu)">${pscExpireAnnee.length}</div>
+          <div class="label">PSC expirent en ${thisYear}</div>
+          <div class="sub">À renouveler avant le 31/12</div>
+        </div>
+        <div class="card card-stat" style="border-top:3px solid var(--or)">
+          <div class="value" style="color:var(--or)">${sn1ExpireAnnee.length}</div>
+          <div class="label">SN1 expirent en ${thisYear}</div>
+          <div class="sub">À renouveler avant le 31/12</div>
+        </div>
+      </div>
     </div>
   `;
 
