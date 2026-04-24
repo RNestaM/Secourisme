@@ -730,7 +730,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V117</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V118</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -785,7 +785,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V117</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V118</span></div>
     </div>
   </div>
 
@@ -4489,12 +4489,22 @@ async function loadTemplatesList() {
     const name = f.name.replace('.odt','');
     return `<span style="display:inline-flex;align-items:center;gap:6px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:20px;padding:4px 12px;font-size:13px;margin:4px">
       📄 ${name}
-      <button onclick="deleteTemplate('${f.name}')" style="background:none;border:none;cursor:pointer;color:#c0392b;font-size:14px;padding:0;line-height:1">×</button>
+      <button onclick="downloadTemplate('${f.name}')" title="Télécharger" style="background:none;border:none;cursor:pointer;color:#2980b9;font-size:14px;padding:0;line-height:1">⬇️</button>
+      <button onclick="deleteTemplate('${f.name}')" title="Supprimer" style="background:none;border:none;cursor:pointer;color:#c0392b;font-size:14px;padding:0;line-height:1">×</button>
     </span>`;
   }).join('');
 }
 
-async function uploadTemplate() {
+async function downloadTemplate(filename) {
+  const { data, error } = await db.storage.from('pv-templates').download(filename);
+  if (error) { showToast('Erreur téléchargement : ' + error.message, 'error'); return; }
+  const url = URL.createObjectURL(data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
   const file = document.getElementById('template-upload-file').files[0];
   const type = document.getElementById('template-type-select').value;
   if (!file) { showToast('Sélectionnez un fichier', 'error'); return; }
