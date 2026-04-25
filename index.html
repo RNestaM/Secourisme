@@ -730,7 +730,7 @@ tbody td {
     <button class="btn-login" onclick="doLogin()">Connexion</button>
     <div class="login-error" id="login-error"></div>
   </div>
-  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V119</span></div>
+  <div style="position:fixed;bottom:10px;left:12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2);pointer-events:none"><span id="login-version">V121</span></div>
 </div>
 
 <!-- ══════════════════════════════════════════════ APP ══ -->
@@ -785,7 +785,7 @@ tbody td {
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">🚪 Déconnexion</button>
-      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V119</span></div>
+      <div style="text-align:center;margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.2)"><span id="github-version">V121</span></div>
     </div>
   </div>
 
@@ -2098,24 +2098,24 @@ async function savePersonnel() {
   // Ajouter dans l'historique uniquement si date non vide
   // Pour supprimer une date, utiliser le bouton × dans le dossier agent
   if (personnelId && pscDate) {
-    const { error: ePsc } = await db.from('historique_formations').insert({
+    const { error: ePsc } = await db.from('historique_formations').upsert({
       personnel_id: personnelId,
       date_formation: pscDate,
       type_formation: 'PSC',
       format: 'FC',
       valide: true,
-    });
-    if (ePsc && ePsc.code !== '23505') console.error('PSC insert:', ePsc);
+    }, { onConflict: 'personnel_id,date_formation,type_formation' });
+    if (ePsc) console.error('PSC upsert:', ePsc);
   }
   if (personnelId && sn1Date) {
-    const { error: eSn1 } = await db.from('historique_formations').insert({
+    const { error: eSn1 } = await db.from('historique_formations').upsert({
       personnel_id: personnelId,
       date_formation: sn1Date,
       type_formation: 'SN1',
       format: 'FC',
       valide: true,
-    });
-    if (eSn1 && eSn1.code !== '23505') console.error('SN1 insert:', eSn1);
+    }, { onConflict: 'personnel_id,date_formation,type_formation' });
+    if (eSn1) console.error('SN1 upsert:', eSn1);
   }
 
   showToast(editingPersonnelId ? 'Agent mis à jour' : 'Agent ajouté', 'success');
@@ -2884,16 +2884,16 @@ async function addAllParticipants() {
       ? alertesNonConformes.map(a => a.msg.replace(/[⚠️🔶🚨]/g, '').trim()).join(' / ')
       : null;
 
-    const { error } = await db.from('formation_participants').insert({
+    const { error } = await db.from('formation_participants').upsert({
       formation_id: currentFormationId,
       personnel_id: p.id,
       present: true,
       resultat: null,
       notes: noteAuto || null,
-    });
+    }, { onConflict: 'formation_id,personnel_id' });
     if (error) {
-      if (error.code === '23505') skipped++;
-      else { showToast('Erreur : ' + error.message, 'error'); }
+      skipped++;
+      console.warn('Upsert participant error:', error.message);
     } else {
       added++;
       await updatePersonnelStats(p.id, currentFormationId);
@@ -2982,15 +2982,15 @@ async function insererHistorique(personnelId, formationId, valide) {
     .select('type_formation, format, date_formation')
     .eq('id', formationId).single();
   if (!f) return;
-  const { error } = await db.from('historique_formations').insert({
+  const { error } = await db.from('historique_formations').upsert({
     personnel_id: personnelId,
     formation_id: formationId,
     date_formation: f.date_formation,
     type_formation: f.type_formation,
     format: f.format,
     valide: valide,
-  });
-  if (error && error.code !== '23505') console.error('Historique insert error:', error);
+  }, { onConflict: 'personnel_id,date_formation,type_formation' });
+  if (error) console.error('Historique upsert error:', error);
 }
 
 // ─── STATS ────────────────────────────────────────────────
